@@ -1,45 +1,47 @@
-API SteamWork
-=============
+# TTS Cloud Sync
 
-ISteamRemoteStorage
--------------------
+Synchronise a local folder with ther Tabletop Simulator cloud.
 
-BeginFileWriteBatch
-EndFileWriteBatch
+## API SteamWork
 
-FileDelete
-FileExists
-FileForget
-FilePersisted
-FileRead
-FileReadAsync
-FileReadAsyncComplete
-FileShare
-FileWrite
-FileWriteAsync
-FileWriteStreamCancel
-FileWriteStreamClose
-FileWriteStreamOpen
-FileWriteStreamWriteChunk
+### ISteamRemoteStorage
 
-GetCachedUGCCount
-GetFileCount
-GetFileNameAndSize
-GetFileSize
-GetFileTimestamp
-GetLocalFileChangeCount
-GetLocalFileChange
-GetQuota
-GetSyncPlatforms
-GetUGCDetails
-GetUGCDownloadProgress
+    BeginFileWriteBatch
+    EndFileWriteBatch
 
-IsCloudEnabledForAccount
-SetCloudEnabledForApp
-SetSyncPlatforms
-SetUserPublishedFileAction
-SubscribePublishedFile
+    FileDelete
+    FileExists
+    FileForget
+    FilePersisted
+    FileRead
+    FileReadAsync
+    FileReadAsyncComplete
+    FileShare
+    FileWrite
+    FileWriteAsync
+    FileWriteStreamCancel
+    FileWriteStreamClose
+    FileWriteStreamOpen
+    FileWriteStreamWriteChunk
 
-UGCDownload
-UGCDownloadToLocation
-UGCRead
+    GetCachedUGCCount
+    GetFileCount
+    GetFileNameAndSize
+    GetFileSize
+    GetFileTimestamp
+    GetLocalFileChangeCount
+    GetLocalFileChange
+    GetQuota
+    GetSyncPlatforms
+    GetUGCDetails
+    GetUGCDownloadProgress
+
+    IsCloudEnabledForAccount
+    SetCloudEnabledForApp
+    SetSyncPlatforms
+    SetUserPublishedFileAction
+    SubscribePublishedFile
+
+    UGCDownload
+    UGCDownloadToLocation
+    UGCRead
