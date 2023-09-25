@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
-namespace JeSuisPilote;
+namespace TTSCloudSync;
 
 class SteamCloud
 {

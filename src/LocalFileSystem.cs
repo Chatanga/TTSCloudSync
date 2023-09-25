@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 
-namespace JeSuisPilote;
+namespace TTSCloudSync;
 
 class LocalFileSystem
 {

@@ -2,7 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Steamworks;
 
-namespace JeSuisPilote;
+namespace TTSCloudSync;
 
 class TabletopSimulatorCloud
 {

@@ -1,6 +1,6 @@
 ﻿using Steamworks;
 
-namespace JeSuisPilote;
+namespace TTSCloudSync;
 
 class Program
 {
