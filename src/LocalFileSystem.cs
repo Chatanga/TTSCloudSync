@@ -33,7 +33,7 @@ class LocalFileSystem
                 Sha1 = sha1,
                 Date = fileInfo.CreationTime.ToString("d'/'M'/'yyyy' 'H':'mm':'ss tt"),
                 DirectoryName = fileInfo.DirectoryName,
-                Folder = virtualRootFolder + "/" + fileInfo.DirectoryName[(rootFolder.Length + 1)..],
+                Folder = virtualRootFolder + ("/" + fileInfo.DirectoryName)[(rootFolder.Length + 1)..],
             };
 
             string key = sha1 + '_' + item.Name;
