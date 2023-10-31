@@ -24,7 +24,7 @@ class LocalFileSystem
             Debug.Assert(fileInfo.DirectoryName != null && fileInfo.DirectoryName.StartsWith(rootFolder));
 
             byte[] data = File.ReadAllBytes(fileInfo.FullName);
-            string sha1 = BitConverter.ToString(SHA1.Create().ComputeHash(data)).Replace("-", "");
+            string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
 
             LocalItem item = new()
             {

@@ -20,15 +20,20 @@ class Program
 
     static void Main(string[] args)
     {
+        Synchronize("Dune Immorality", "cloud");
+        //Synchronize("Temp", "new");
+    }
+
+    static void Synchronize(string remoteRootFolder, string localRootSubFolder)
+    {
         AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
 
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
-            string remoteRootFolder = "Dune Immorality";
-
             string localRootFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-                + "/Personnel/Productions/Code/Maison/DuneImperiumTTS/resources/cloud";
+                + "/Personnel/Productions/Code/Maison/DuneImperiumTTS/resources/"
+                + localRootSubFolder;
 
             //Console.Error.WriteLine("Listing local file system items...");
             var fileItems = LocalFileSystem.ListItems(localRootFolder, remoteRootFolder);

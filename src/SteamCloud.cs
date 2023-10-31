@@ -54,7 +54,7 @@ class SteamCloud
             byte[] data = new byte[fileSizeInBytes];
             SteamRemoteStorage.FileRead(fileName, data, fileSizeInBytes);
 
-            string sha1 = BitConverter.ToString(SHA1.Create().ComputeHash(data)).Replace("-", "");
+            string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
 
             RemoteItem item = new()
             {
@@ -107,7 +107,7 @@ class SteamCloud
     {
         if (SteamRemoteStorage.FileWrite(name, data, data.Length))
         {
-            string sha1 = BitConverter.ToString(SHA1.Create().ComputeHash(data)).Replace("-", "");
+            string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
             var sharer = new FileSharer(name, sha1);
             sharer.Share().Wait();
             Debug.Assert(sharer.URL != null);
