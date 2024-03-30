@@ -2,7 +2,7 @@
 
 namespace TTSCloudSync;
 
-class Program
+class CloudSync
 {
     private enum CloudCommand
     {
@@ -20,8 +20,9 @@ class Program
 
     static void Main(string[] args)
     {
-        Synchronize("Dune Immorality", "cloud");
-        //Synchronize("Temp", "new");
+        //Synchronize("Dune Immorality", "immorality");
+        //Synchronize("Temp", "alpha");
+        Synchronize("rakis", "rakis");
     }
 
     static void Synchronize(string remoteRootFolder, string localRootSubFolder)
@@ -32,7 +33,7 @@ class Program
         try
         {
             string localRootFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-                + "/Personnel/Productions/Code/Maison/DuneImperiumTTS/resources/"
+                + "/Personnel/Productions/Code/Maison/DuneImperiumTTS/resources/cloud/"
                 + localRootSubFolder;
 
             //Console.Error.WriteLine("Listing local file system items...");
