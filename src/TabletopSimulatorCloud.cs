@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Steamworks;
@@ -26,7 +27,7 @@ class TabletopSimulatorCloud
         }
     }
 
-    public static Dictionary<string, CloudItem> ListItems()
+    public static Dictionary<UniKey, CloudItem> ListItems()
     {
         if (!SteamRemoteStorage.FileExists("CloudInfo.bson"))
         {
@@ -35,12 +36,12 @@ class TabletopSimulatorCloud
         var data = SteamCloud.GetFile("CloudInfo.bson");
         //LocalFileSystem.BackupFile("CloudInfo.bson", data);
 
-        var cloudInfo = ParseBson<Dictionary<string, CloudItem>>(data);
-        if (cloudInfo is null)
+        var rawCloudInfo = ParseBson<Dictionary<string, CloudItem>>(data);
+        if (rawCloudInfo is null)
         {
             throw new Exception("Malformed 'CloudInfo.bson' file.");
         }
-        return cloudInfo;
+        return rawCloudInfo.ToDictionary(kvp => new UniKey(kvp.Key), kvp => kvp.Value);
     }
 
     public static List<string> ListFolders()
@@ -59,12 +60,13 @@ class TabletopSimulatorCloud
         return cloudFolder;
     }
 
-    public static void UploadTableOfContent(Dictionary<string, CloudItem> cloudInfo)
+    public static void UploadTableOfContent(Dictionary<UniKey, CloudItem> cloudInfo)
     {
-        byte[] cloudInfoData = ToBson(cloudInfo);
+        Dictionary<string, CloudItem> rawCloudInfo = cloudInfo.ToDictionary(kvp => "" + kvp.Key.ToString(), kvp => kvp.Value);
+        byte[] cloudInfoData = ToBson(rawCloudInfo);
         SteamCloud.UploadFile("CloudInfo.bson", cloudInfoData);
 
-        SortedSet<string> allFolders = new ();
+        SortedSet<string> allFolders = new();
         foreach (var entry in cloudInfo)
         {
             string folder = entry.Value.Folder;
@@ -93,11 +95,12 @@ class TabletopSimulatorCloud
     private static byte[] ToBson(object obj)
     {
         byte[] result;
-        using (MemoryStream memoryStream = new ())
+        using (MemoryStream memoryStream = new())
         {
-            using (BsonDataWriter bsonWriter = new (memoryStream))
+            using (BsonDataWriter bsonWriter = new(memoryStream))
             {
-                JsonSerializer serializer = new () {
+                JsonSerializer serializer = new()
+                {
                     NullValueHandling = NullValueHandling.Ignore
                 };
                 serializer.Serialize(bsonWriter, obj);

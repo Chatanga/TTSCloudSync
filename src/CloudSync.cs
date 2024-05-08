@@ -15,37 +15,63 @@ class CloudSync
 
     private static void HandleException(object sender, UnhandledExceptionEventArgs e)
     {
-        Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
+        Console.WriteLine($"Unhandled exception ({e.ExceptionObject.GetType()}): {e.ExceptionObject}");
     }
 
-    static void Main(string[] args)
+    public static void Main(string[] args)
     {
-        //Synchronize("Dune Immorality", "immorality");
-        //Synchronize("Temp", "alpha");
-        Synchronize("rakis", "rakis");
+        //sync-with-cloud [--force] local_path [tts_steam_cloud_path] > mapping.lst
+
+        string localRoot = ".";
+        string remoteRoot = ".";
+
+        switch (args.Length)
+        {
+            case 1:
+                localRoot = args[0];
+                break;
+            case 2:
+                localRoot = args[0];
+                remoteRoot = args[1];
+                break;
+            default:
+                Console.Error.WriteLine("Usage: ... [FILE]");
+                Environment.Exit(1);
+                break;
+        }
+
+        Synchronize(GetCanonicalFullPath(localRoot), remoteRoot, false);
     }
 
-    static void Synchronize(string remoteRootFolder, string localRootSubFolder)
+    static string GetCanonicalFullPath(string path)
+    {
+        string? canonicalFullPath = Path.GetFullPath(path);
+        ArgumentNullException.ThrowIfNull(canonicalFullPath);
+        canonicalFullPath = Path.TrimEndingDirectorySeparator(canonicalFullPath);
+        return canonicalFullPath;
+    }
+
+    static void Synchronize(string localRootPath, string remoteRootPath, bool dryRun)
     {
         AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
 
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
-            string localRootFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
-                + "/Personnel/Productions/Code/Maison/DuneImperiumTTS/resources/cloud/"
-                + localRootSubFolder;
-
             //Console.Error.WriteLine("Listing local file system items...");
-            var fileItems = LocalFileSystem.ListItems(localRootFolder, remoteRootFolder);
+            var fileItems = LocalFileSystem.ListItems(localRootPath, remoteRootPath);
 
             //Console.Error.WriteLine("Listing Steam cloud items...");
             var remoteItems = SteamCloud.ListItems();
 
             //Console.Error.WriteLine("Listing TTS cloud items...");
             var cloudItems = TabletopSimulatorCloud.ListItems();
+            foreach (var entry in cloudItems)
+            {
+                //Console.Error.WriteLine("cloudItem -> " + entry.Key);
+            }
 
-            HashSet<string> allKeys = new ();
+            HashSet<UniKey> allKeys = new();
 
             foreach (var entry in fileItems)
             {
@@ -59,81 +85,92 @@ class CloudSync
 
             foreach (var entry in cloudItems)
             {
+                //Console.Error.WriteLine(entry.Value.Name + " // " + entry.Value.Folder);
                 allKeys.Add(entry.Key);
             }
 
+            // Shared = listed in the Steam Cloud (which a flat list of files by the way).
+            // Known = listed in TTS CloudInfo.bson file (which is hierarchical directory layer).
+
+            HashSet<UniKey> allValidKeys = new();
             foreach (var key in allKeys)
             {
-                bool ok = true;
                 if (remoteItems.TryGetValue(key, out SteamCloud.RemoteItem remoteItem))
                 {
-                    ok = false;
-                    if (remoteItem.Folder != "")
+                    string[] ttsSpecialFileNames = {
+                        "WorkshopImageUpload.png",
+                        "WorkshopUpload",
+                        "CloudFolder.bson",
+                        "CloudInfo.bson",
+                    };
+                    if (ttsSpecialFileNames.Contains(remoteItem.Name))
                     {
-                        Console.Error.WriteLine("Delete anomality: " + key);
-                        SteamCloud.DeleteFile(remoteItem.Name);
+                        //Console.Error.WriteLine("Skip: " + key);
+                    }
+                    else if (!cloudItems.ContainsKey(key))
+                    {
+                        Console.Error.WriteLine($"Delete unknown shared file: {key}");
+                        if (!dryRun)
+                        {
+                            SteamCloud.DeleteFile(remoteItem.Name, remoteItem.Sha1);
+                        }
+                        // Updating remoteItems is not needed but we did nevertheless.
+                        remoteItems.Remove(key);
                     }
                     else
                     {
-                        string[] specialFileNames = {
-                            "WorkshopImageUpload.png",
-                            "WorkshopUpload",
-                            "CloudFolder.bson",
-                            "CloudInfo.bson",
-                        };
-                        if (specialFileNames.Contains(remoteItem.Name))
-                        {
-                            //Console.Error.WriteLine("Skip: " + key);
-                        }
-                        else if (!cloudItems.ContainsKey(key))
-                        {
-                            Console.Error.WriteLine("Delete zombie: " + key);
-                            SteamCloud.DeleteFile(remoteItem.Name);
-                        }
-                        else
-                        {
-                            ok = true;
-                        }
+                        allValidKeys.Add(key);
                     }
                 }
                 else if (cloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
                 {
-                    Console.Error.WriteLine("Delete ghost: " + key);
+                    Console.Error.WriteLine($"Forget unshared known file: {key}");
                     cloudItems.Remove(key);
                 }
-
-                if (ok)
+                else
                 {
-                    if (fileItems.TryGetValue(key, out LocalFileSystem.LocalItem fileItem))
+                    allValidKeys.Add(key);
+                }
+            }
+
+            string? remoteRootFolder = Path.GetFileName(remoteRootPath);
+            ArgumentNullException.ThrowIfNull(remoteRootFolder);
+
+            foreach (var key in allValidKeys)
+            {
+                if (fileItems.TryGetValue(key, out LocalFileSystem.LocalItem fileItem))
+                {
+                    if (cloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
                     {
-                        if (cloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
+                        if (fileItem.Folder != cloudItem.Folder)
                         {
-                            if (fileItem.Folder != cloudItem.Folder)
+                            if (!cloudItem.Folder.StartsWith(remoteRootFolder))
                             {
-                                if (!cloudItem.Folder.StartsWith(remoteRootFolder))
-                                {
-                                    Console.Error.WriteLine("Ignore local relocation: " + key);
-                                }
-                                else
-                                {
-                                    Console.Error.WriteLine("Move: " + key);
-                                    cloudItem.Folder = fileItem.Folder;
-                                    cloudItems.Remove(key);
-                                    cloudItems.Add(key, cloudItem);
-                                }
+                                Console.Error.WriteLine($"Ignore local relocation: {key}");
                             }
                             else
                             {
-                                //Console.Error.WriteLine("Keep: " + key);
+                                Console.Error.WriteLine($"Move: {key} ({fileItem.Folder} != {cloudItem.Folder})");
+                                cloudItem.Folder = fileItem.Folder;
+                                cloudItems.Remove(key);
+                                cloudItems.Add(key, cloudItem);
                             }
                         }
                         else
                         {
-                            Console.Error.WriteLine("Add and share: " + key);
+                            //Console.Error.WriteLine("Keep: " + key);
+                        }
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"Add, share and remember: {key}");
+                        if (!dryRun)
+                        {
                             byte[] data = File.ReadAllBytes(fileItem.DirectoryName + "/" + fileItem.Name);
                             if (SteamCloud.UploadFileAndShare(fileItem.Name, data, out string? URL))
                             {
-                                cloudItems.Add(key, new TabletopSimulatorCloud.CloudItem () {
+                                cloudItems.Add(key, new TabletopSimulatorCloud.CloudItem()
+                                {
                                     Name = fileItem.Name,
                                     URL = URL,
                                     Size = fileItem.Size,
@@ -143,24 +180,31 @@ class CloudSync
                             }
                         }
                     }
-                    else if (cloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
+                }
+                else if (cloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
+                {
+                    if (!cloudItem.Folder.StartsWith(remoteRootFolder))
                     {
-                        if (!cloudItem.Folder.StartsWith(remoteRootFolder))
+                        //Console.Error.WriteLine("Ignore: " + key);
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"Delete and forget: {key}");
+                        if (!dryRun)
                         {
-                            //Console.Error.WriteLine("Ignore: " + key);
-                        }
-                        else
-                        {
-                            Console.Error.WriteLine("Delete: " + key);
-                            SteamCloud.DeleteFile(cloudItem.Name);
+                            SteamCloud.DeleteFile(cloudItem.Name, null);
                             cloudItems.Remove(key);
                         }
                     }
                 }
             }
 
-            TabletopSimulatorCloud.UploadTableOfContent(cloudItems);
+            if (!dryRun)
+            {
+                TabletopSimulatorCloud.UploadTableOfContent(cloudItems);
+            }
 
+            // Dump the mapping in stdout (other messages are sent to stderr).
             foreach (var entry in cloudItems)
             {
                 Console.WriteLine(entry.Key + ";" + entry.Value.URL);

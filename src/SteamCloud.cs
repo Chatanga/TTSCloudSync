@@ -2,15 +2,16 @@ using Steamworks;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace TTSCloudSync;
 
-class SteamCloud
+partial class SteamCloud
 {
     public struct RemoteItem
     {
         public string Name;
-        public string Folder;
+        public string ShareName;
         public long Size;
         public string Sha1;
     }
@@ -40,41 +41,38 @@ class SteamCloud
         SteamAPI.Shutdown();
     }
 
-    public static Dictionary<string, RemoteItem> ListItems()
+    [GeneratedRegex("^[a-z]")]
+    private static partial Regex FirstLetterAsChar();
+
+    public static Dictionary<UniKey, RemoteItem> ListItems()
     {
-        Dictionary<string, RemoteItem> remoteItems = new ();
+        Dictionary<UniKey, RemoteItem> remoteItems = new();
         int fileCount = SteamRemoteStorage.GetFileCount();
         for (int i = 0; i < fileCount; ++i)
         {
+            // A Steam Cloud has a flat structure, without folders.
             string fileName = SteamRemoteStorage.GetFileNameAndSize(i, out int fileSizeInBytes);
-            int lastPathSeparatorIndex = fileName.LastIndexOf('/');
-            string name = fileName[(lastPathSeparatorIndex + 1)..];
-            string folder = lastPathSeparatorIndex != -1 ? fileName[0..lastPathSeparatorIndex] : "";
 
             byte[] data = new byte[fileSizeInBytes];
             SteamRemoteStorage.FileRead(fileName, data, fileSizeInBytes);
 
             string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
 
+            string name = fileName;
+            if (name.StartsWith(sha1 + "_"))
+            {
+                name = name[(sha1.Length + 1)..];
+            }
+
             RemoteItem item = new()
             {
                 Name = name,
-                Folder = folder,
+                ShareName = fileName,
                 Size = fileSizeInBytes,
                 Sha1 = sha1,
             };
 
-            string key;
-            if (fileName.StartsWith(sha1))
-            {
-                key = item.Name;
-            }
-            else
-            {
-                key = sha1 + '_' + item.Name;
-            }
-
-            remoteItems.Add(key, item);
+            remoteItems.Add(new UniKey(name, sha1), item);
         }
         return remoteItems;
     }
@@ -87,12 +85,30 @@ class SteamCloud
         return bytes;
     }
 
-    public static void DeleteFile(string name)
+    public static void DeleteFile(string name, string? sha1)
     {
-        if (!SteamRemoteStorage.FileDelete(name))
+        List<string> potentialNames = new();
+        potentialNames.Add(name);
+        if (sha1 != null)
         {
-            Console.Error.WriteLine("Failed to delete file: " + name);
+            int underscoreIndex = name.IndexOf(sha1);
+            if (underscoreIndex != -1)
+            {
+                potentialNames.Add(name[(underscoreIndex + 1)..]);
+            }
+            else
+            {
+                potentialNames.Add($"{sha1}_{name}");
+            }
         }
+        foreach (string potentialName in potentialNames)
+        {
+            if (SteamRemoteStorage.FileDelete(potentialName))
+            {
+                return;
+            }
+        }
+        Console.Error.WriteLine("Failed to delete file: " + name);
     }
 
     public static void UploadFile(string name, byte[] data)
@@ -140,6 +156,10 @@ class SteamCloud
 
         public async Task<string?> Share()
         {
+            // TTS UI use the combination of the file name and sha1 for the shared name.
+            // We don't replicate this behavior? Seems to matter in the end.
+            // For Steam, the Name is the key and the case doesn't matter.
+            // Using the Sha1_Name format is also mandatory since TTS layer expect it (and won't be able do delete it otherwise).
             var ret = SteamRemoteStorage.FileShare(Name);
             Callback.Set(ret);
             while (!Finished)
@@ -164,5 +184,4 @@ class SteamCloud
             }
         }
     }
-
 }

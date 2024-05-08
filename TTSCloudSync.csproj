@@ -6,9 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <!--AllowUnsafeBlocks>true</AllowUnsafeBlocks-->
-    <!--StartupObject>TTSCloudSync.CloudFinder</StartupObject-->
-    <!--StartupObject>TTSCloudSync.UgcUrlExtractor</StartupObject-->
-    <StartupObject>TTSCloudSync.UgcResourceDownloader</StartupObject>
+    <StartupObject>TTSCloudSync.CommandLine</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>

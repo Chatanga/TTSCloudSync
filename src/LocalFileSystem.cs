@@ -15,13 +15,13 @@ class LocalFileSystem
         public string Folder;
     }
 
-    public static Dictionary<string, LocalItem> ListItems(string rootFolder, string virtualRootFolder)
+    public static Dictionary<UniKey, LocalItem> ListItems(string localRootPath, string remoteRootPath)
     {
-        Dictionary<string, LocalItem> localItems = new ();
-        DirectoryInfo dirInfo = new (rootFolder);
+        Dictionary<UniKey, LocalItem> localItems = new();
+        DirectoryInfo dirInfo = new(localRootPath);
         foreach (var fileInfo in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
         {
-            Debug.Assert(fileInfo.DirectoryName != null && fileInfo.DirectoryName.StartsWith(rootFolder));
+            Debug.Assert(fileInfo.DirectoryName != null && fileInfo.DirectoryName.StartsWith(localRootPath));
 
             byte[] data = File.ReadAllBytes(fileInfo.FullName);
             string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
@@ -33,10 +33,10 @@ class LocalFileSystem
                 Sha1 = sha1,
                 Date = fileInfo.CreationTime.ToString("d'/'M'/'yyyy' 'H':'mm':'ss tt"),
                 DirectoryName = fileInfo.DirectoryName,
-                Folder = virtualRootFolder + ("/" + fileInfo.DirectoryName)[(rootFolder.Length + 1)..],
+                Folder = Path.GetFileName(remoteRootPath) + fileInfo.DirectoryName[localRootPath.Length..],
             };
 
-            string key = sha1 + '_' + item.Name;
+            UniKey key = new(item.Name, sha1);
 
             if (localItems.TryGetValue(key, out LocalItem oldItem))
             {
