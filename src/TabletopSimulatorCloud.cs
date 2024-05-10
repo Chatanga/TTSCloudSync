@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Bson;
 using Steamworks;
+using System.Security.Cryptography;
 
 namespace TTSCloudSync;
 
@@ -58,6 +58,20 @@ class TabletopSimulatorCloud
             throw new Exception("Malformed 'CloudFolder.bson' file.");
         }
         return cloudFolder;
+    }
+
+    public static bool IsDistinct(Dictionary<UniKey, CloudItem> cloudItems, LocalFileSystem.LocalItem localItem, byte[] data)
+    {
+        string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
+        foreach (var entry in cloudItems)
+        {
+            //if (entry.Key.Name.ToUpper() == localItem.Name.ToUpper() && entry.Key.Sha1 == sha1)
+            if (entry.Key.Name.ToUpper() == localItem.Name.ToUpper())
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static void UploadTableOfContent(Dictionary<UniKey, CloudItem> cloudInfo)

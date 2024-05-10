@@ -28,7 +28,6 @@ public class UniKey : IEquatable<UniKey>
 
     public override bool Equals(object? obj) => obj is UniKey other && Equals(other);
 
-    //public bool Equals(UniKey? other) => other is not null && Name.ToUpper() == other.Name.ToUpper() && Sha1 == other.Sha1;
     public bool Equals(UniKey? other) => other is not null && Name == other.Name && Sha1 == other.Sha1;
 
     public override int GetHashCode() => (Name.ToUpper(), Sha1).GetHashCode();

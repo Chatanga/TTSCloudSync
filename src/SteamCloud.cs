@@ -113,13 +113,14 @@ partial class SteamCloud
 
     public static void UploadFile(string name, byte[] data)
     {
-        if (!SteamRemoteStorage.FileWrite(name, data, data.Length))
+        string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
+        if (!SteamRemoteStorage.FileWrite($"{sha1}_{name}", data, data.Length))
         {
             Console.Error.WriteLine("Failed to upload file: " + name);
         }
     }
 
-    public static bool UploadFileAndShare(string name, byte[] data, [MaybeNullWhen(false)] out string URL)
+    public static bool UploadFileAndShare(string name, byte[] data, [NotNullWhen(true)] out RemoteItem? remoteItem, [NotNullWhen(true)] out string? URL)
     {
         if (SteamRemoteStorage.FileWrite(name, data, data.Length))
         {
@@ -127,11 +128,19 @@ partial class SteamCloud
             var sharer = new FileSharer(name, sha1);
             sharer.Share().Wait();
             Debug.Assert(sharer.URL != null);
+            remoteItem = new RemoteItem()
+            {
+                Name = name,
+                ShareName = sharer.Name,
+                Size = data.Length,
+                Sha1 = sha1,
+            };
             URL = sharer.URL;
             return true;
         }
         else
         {
+            remoteItem = null;
             URL = null;
             return false;
         }
@@ -140,7 +149,7 @@ partial class SteamCloud
     private class FileSharer
     {
         private readonly CallResult<RemoteStorageFileShareResult_t> Callback;
-        private readonly string Name;
+        public readonly string Name;
         private readonly string Sha1;
         private bool Finished;
         public string? URL;
@@ -156,11 +165,9 @@ partial class SteamCloud
 
         public async Task<string?> Share()
         {
-            // TTS UI use the combination of the file name and sha1 for the shared name.
-            // We don't replicate this behavior? Seems to matter in the end.
-            // For Steam, the Name is the key and the case doesn't matter.
-            // Using the Sha1_Name format is also mandatory since TTS layer expect it (and won't be able do delete it otherwise).
-            var ret = SteamRemoteStorage.FileShare(Name);
+            // TTS use the combination of the file name and sha1 for the shared name
+            // and TTS expects it to properly delete it when done though its UI.
+            var ret = SteamRemoteStorage.FileShare($"{Sha1}_{Name}");
             Callback.Set(ret);
             while (!Finished)
             {
