@@ -4,39 +4,36 @@ namespace TTSCloudSync;
 
 class CloudSync
 {
-    private static void HandleException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Console.WriteLine($"Unhandled exception ({e.ExceptionObject.GetType()}): {e.ExceptionObject}");
-    }
-
     public static void Main(string[] args)
     {
-        //sync-with-cloud [--force] local_path [tts_steam_cloud_path] > mapping.lst
+        CommandLineParser parser = new();
+        parser.AddOption("--dry-run");
+        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
+
+        bool dryRun = options.ContainsKey("--dry-run");
 
         string localRoot = ".";
         string remoteRoot = ".";
 
-        switch (args.Length)
+        switch (arguments.Count)
         {
             case 1:
-                localRoot = args[0];
+                localRoot = arguments[0];
                 break;
             case 2:
-                localRoot = args[0];
-                remoteRoot = args[1];
+                localRoot = arguments[0];
+                remoteRoot = arguments[1];
                 break;
             default:
-                Console.Error.WriteLine("Usage: ... [FILE]");
+                Console.Error.WriteLine("Usage: sync-with-cloud [--dry-run] LOCAL_PATH [TTS_STEAM_CLOUD_PATH] [> MAPPING]");
                 Environment.Exit(1);
                 break;
         }
 
-        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
-
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
-            new CloudSync(GetCanonicalFullPath(localRoot), remoteRoot, false).Synchronize();
+            new CloudSync(GetCanonicalFullPath(localRoot), remoteRoot, dryRun).Synchronize();
         }
         finally
         {
@@ -62,7 +59,6 @@ class CloudSync
 
     private readonly bool DryRun;
 
-
     // Shared = listed in the Steam Cloud (which is a flat list of files by the way).
     // Known = listed in TTS CloudInfo.bson file (which is a hierarchical directory layer).
     public CloudSync(string localRootPath, string remoteRootPath, bool dryRun)
@@ -70,18 +66,9 @@ class CloudSync
         RemoteRootFolder = Path.GetFileName(remoteRootPath);
         ArgumentNullException.ThrowIfNull(RemoteRootFolder);
 
-        //Console.Error.WriteLine("Listing local file system items...");
         FileItems = LocalFileSystem.ListItems(localRootPath, remoteRootPath);
-
-        //Console.Error.WriteLine("Listing Steam cloud items...");
         RemoteItems = SteamCloud.ListItems();
-
-        //Console.Error.WriteLine("Listing TTS cloud items...");
         CloudItems = TabletopSimulatorCloud.ListItems();
-        foreach (var entry in CloudItems)
-        {
-            //Console.Error.WriteLine("cloudItem -> " + entry.Key);
-        }
 
         DryRun = dryRun;
     }
@@ -91,20 +78,19 @@ class CloudSync
         FileItems.TryGetValue(key, out LocalFileSystem.LocalItem fileItem);
         byte[] data = File.ReadAllBytes(Path.Combine(fileItem.DirectoryName, fileItem.Name));
 
-        //Console.Error.WriteLine($"{RemoteItems.ContainsKey(key)} / {CloudItems.ContainsKey(key)} / {FileItems.ContainsKey(key)} -> {key}");
         if (TabletopSimulatorCloud.IsDistinct(CloudItems, fileItem, data))
         {
             Console.Error.Write($"Add, share and remember: {key}\n");
             if (!DryRun)
             {
                 // TODO Go through TabletopSimulatorCloud.
-                if (SteamCloud.UploadFileAndShare(fileItem.Name, data, out SteamCloud.RemoteItem? remoteItem, out string? URL))
+                if (SteamCloud.UploadFileAndShare(fileItem.Name, data, out SteamCloud.RemoteItem? remoteItem, out UgcUrl? URL))
                 {
                     CloudItems.Remove(key);
                     CloudItems.Add(key, new TabletopSimulatorCloud.CloudItem()
                     {
                         Name = fileItem.Name,
-                        URL = URL,
+                        URL = URL.ToString() ?? "",
                         Size = fileItem.Size,
                         Date = fileItem.Date,
                         Folder = fileItem.Folder,
@@ -142,7 +128,7 @@ class CloudSync
         }
         else
         {
-            Console.Error.Write($"Ignore indistinct local file: {key}\n");
+            Console.Error.Write($"Ignore duplicated local file (same case insensitive name and content): {key}\n");
             // Fixing TTS index if needed.
             if (!RemoteItems.ContainsKey(key))
             {
@@ -153,17 +139,9 @@ class CloudSync
 
     private void Remove(UniKey key)
     {
-        //Console.Error.WriteLine($"{RemoteItems.ContainsKey(key)} / {CloudItems.ContainsKey(key)} / {FileItems.ContainsKey(key)} -> {key}");
-
-        string[] ttsSpecialFileNames = {
-            "WorkshopImageUpload.png",
-            "WorkshopUpload",
-            "CloudFolder.bson",
-            "CloudInfo.bson",
-        };
         if (RemoteItems.TryGetValue(key, out SteamCloud.RemoteItem remoteItem))
         {
-            if (ttsSpecialFileNames.Contains(remoteItem.Name))
+            if (TabletopSimulatorCloud.TTS_SPECIAL_FILE_NAMES.Contains(remoteItem.Name))
             {
                 //Console.Error.WriteLine("Skip: " + key);
             }
@@ -172,7 +150,7 @@ class CloudSync
                 Console.Error.WriteLine($"Delete and forget: {key}");
                 if (!DryRun)
                 {
-                    SteamCloud.DeleteFile(remoteItem.Name, null);
+                    SteamCloud.DeleteFile(remoteItem.Name, remoteItem.Sha1);
                 }
             }
             RemoteItems.Remove(key);
@@ -205,7 +183,7 @@ class CloudSync
             }
             else
             {
-                Console.Error.WriteLine($"Move: {key} ({fileItem.Folder} != {cloudItem.Folder})");
+                Console.Error.WriteLine($"Move: {key} ({fileItem.Folder} -> {cloudItem.Folder})");
                 cloudItem.Folder = fileItem.Folder;
                 CloudItems.Remove(key);
                 CloudItems.Add(key, cloudItem);
@@ -219,7 +197,7 @@ class CloudSync
 
     private bool IsOutside(UniKey key, TabletopSimulatorCloud.CloudItem cloudItem)
     {
-        // TODO Discutable, à revoir.
+        // TODO Questionable, to be reworked.
         return !cloudItem.Folder.StartsWith(RemoteRootFolder);
     }
 
@@ -249,7 +227,7 @@ class CloudSync
             new() {Add, MoveIfNeeded},
         };
 
-        Console.Error.WriteLine($"Local FS: {FileItems.Count} / Steam Cloud: {RemoteItems.Count} / TTS index: {CloudItems.Count}");
+        Console.Error.WriteLine($"Local File System: {FileItems.Count} / Steam Cloud: {RemoteItems.Count} / TTS index: {CloudItems.Count}");
 
         for (int i = 0; i < 2; ++i)
         {
@@ -297,8 +275,14 @@ class CloudSync
         // Dump the mapping in stdout (other messages are sent to stderr).
         foreach (var entry in CloudItems)
         {
-            Console.WriteLine(entry.Key + ";" + entry.Value.URL);
+            if (entry.Value.URL != "undefined")
+            {
+                Console.WriteLine(entry.Key + ";" + entry.Value.URL);
+            }
+            else if (!DryRun)
+            {
+                Console.Error.WriteLine($"Unexpected undefined entry {entry.Key}!");
+            }
         }
     }
-
 }

@@ -1,9 +1,8 @@
 using Steamworks;
-using System.Text.RegularExpressions;
 
 namespace TTSCloudSync;
 
-public class UgcResourceDownloader
+class UgcResourceDownloader
 {
     private class FileDownloader
     {
@@ -67,61 +66,28 @@ public class UgcResourceDownloader
         }
     }
 
-    private static void HandleException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
-    }
-
     public static void Main(string[] args)
     {
-        Console.Error.WriteLine("Started");
+        CommandLineParser parser = new();
+        parser.AddOption("-o", true);
+        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
 
-        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
+        string outputDir = options.GetValueOrDefault("-o") ?? ".";
 
-        List<string> parameters = new();
-        Dictionary<string, object> options = new();
-        int i = 0;
-        while (i < args.Length)
-        {
-            string arg = args[i++];
-            if (arg.StartsWith('-'))
-            {
-                string key = arg[1..];
-                object value;
-                if (i < args.Length)
-                {
-                    value = args[i++];
-                }
-                else
-                {
-                    value = true;
-                }
-                options.Add(key, value);
-            }
-            else
-            {
-                parameters.Add(arg);
-            }
-        }
-
-        string outputDir = "" + options.GetValueOrDefault("o", ".");
-
-        switch (parameters.Count)
+        switch (arguments.Count)
         {
             case 0:
                 ProcessingText(Console.In, outputDir);
                 break;
             case 1:
-                using (StreamReader reader = new(File.OpenRead(parameters[0])))
+                using (StreamReader reader = new(File.OpenRead(arguments[0])))
                 {
-                    Console.Out.WriteLine(parameters[0] + " - " + outputDir);
+                    Console.WriteLine(arguments[0] + " - " + outputDir);
                     ProcessingText(reader, outputDir);
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: ... [FILE]");
-                Console.Out.WriteLine(parameters[0]);
-                Console.Out.WriteLine(parameters[1]);
+                Console.Error.WriteLine("Usage: download-ugc-resources [-o OUTPUT_DIR] [FILE]");
                 Environment.Exit(1);
                 break;
         }
@@ -137,14 +103,10 @@ public class UgcResourceDownloader
             string? url;
             while ((url = reader.ReadLine()) != null)
             {
-                Regex regex = UgcUrl.Regex();
-                Match match = regex.Match(url);
-                if (match.Success)
+                UgcUrl? ugcUrl = UgcUrl.Parse(url);
+                if (ugcUrl is not null)
                 {
-                    ulong ugcHandle = ulong.Parse(match.Groups[1].Value);
-                    string sha1 = match.Groups[2].Value;
-
-                    UGCHandle_t hContent = new(ugcHandle);
+                    UGCHandle_t hContent = new(ugcUrl.Value.Handle);
                     var downloader = new FileDownloader(hContent, outputDir);
                     Task<bool> task = downloader.Download();
                     task.Wait();

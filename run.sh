@@ -1,2 +1,1 @@
-#LD_LIBRARY_PATH=lib/ dotnet run > mapping.lst
-LD_LIBRARY_PATH=lib/ dotnet run "$@"
+LD_LIBRARY_PATH=lib/linux-x64 dotnet run -- "$@"

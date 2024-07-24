@@ -1,33 +1,26 @@
-using System.Text.RegularExpressions;
+using Steamworks;
 
 namespace TTSCloudSync;
 
-public class UgcUrlExtractor
+class UgcUrlExtractor
 {
-    private static void HandleException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
-    }
-
     public static void Main(string[] args)
     {
-        Console.Error.WriteLine("Started");
+        (_, List<string> arguments) = new CommandLineParser().Parse(args);
 
-        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
-
-        switch (args.Length)
+        switch (arguments.Count)
         {
             case 0:
                 ProcessingText(Console.In);
                 break;
             case 1:
-                using (StreamReader reader = new(File.OpenRead(args[0])))
+                using (StreamReader reader = new(File.OpenRead(arguments[0])))
                 {
                     ProcessingText(reader);
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: ... [FILE]");
+                Console.Error.WriteLine("Usage: extract-ugc-url [SAVE] [> URL_LST]");
                 Environment.Exit(1);
                 break;
         }
@@ -35,33 +28,28 @@ public class UgcUrlExtractor
 
     private static void ProcessingText(TextReader reader)
     {
-        HashSet<UgcUrl> urls = new();
+        HashSet<UgcUrl> ugcUrls = new();
 
-        Regex regex = UgcUrl.Regex();
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
             int startIndex = 0;
             while (true)
             {
-                Match match = regex.Match(line, startIndex);
-                if (match.Success)
+                (UgcUrl? ugcUrl, _, int endIndex) = UgcUrl.Find(line, startIndex);
+                if (ugcUrl is not null)
                 {
-                    ulong ugcHandle = ulong.Parse(match.Groups[1].Value);
-                    string sha1 = match.Groups[2].Value;
-                    urls.Add(new UgcUrl(ugcHandle, sha1));
-                    startIndex = match.Index + match.Length;
+                    if (ugcUrls.Add(ugcUrl.Value))
+                    {
+                        Console.WriteLine(ugcUrl);
+                    }
+                    startIndex = endIndex;
                 }
                 else
                 {
                     break;
                 }
             }
-        }
-
-        foreach (UgcUrl url in urls)
-        {
-            Console.WriteLine(url);
         }
     }
 }

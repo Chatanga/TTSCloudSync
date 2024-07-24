@@ -1,35 +1,53 @@
-using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Text.RegularExpressions;
 
 namespace TTSCloudSync;
 
-public class UgcUrlPatcher
+class UgcUrlPatcher
 {
-    private static void HandleException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
-    }
-
     public static void Main(string[] args)
     {
-        Console.Error.WriteLine("Started");
+        CommandLineParser parser = new();
+        parser.AddOption("-i");
+        parser.AddOption("--no-backup");
+        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
 
-        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
+        bool inPlace = options.ContainsKey("-i");
+        bool noBackup = options.ContainsKey("--no-backup");
 
-        switch (args.Length)
+        switch (arguments.Count)
         {
             case 1:
-                ProcessingText(ParseMappingFile(args[0]), Console.In);
+                ProcessingText(ParseMappingFile(arguments[0]), Console.In, Console.Out);
                 break;
             case 2:
-                using (StreamReader reader = new(File.OpenRead(args[1])))
+                string fileName = arguments[1];
+                if (inPlace)
                 {
-                    ProcessingText(ParseMappingFile(args[0]), reader);
+                    string tempFilePath = Path.GetTempFileName();
+                    {
+                        using StreamReader reader = new(File.OpenRead(fileName));
+                        using StreamWriter writer = new(File.OpenWrite(tempFilePath));
+                        ProcessingText(ParseMappingFile(arguments[0]), reader, writer);
+                    }
+
+                    if (noBackup)
+                    {
+                        File.Delete(fileName);
+                    }
+                    else
+                    {
+                        File.Move(fileName, fileName + ".bak");
+                    }
+                    File.Move(tempFilePath, fileName);
+                }
+                else
+                {
+                    using StreamReader reader = new(File.OpenRead(fileName));
+                    ProcessingText(ParseMappingFile(arguments[0]), reader, Console.Out);
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: ... mapping.lst [FILE]");
+                Console.Error.WriteLine("Usage: patch-ugc-url [--no-backup] [-i] MAPPING [SAVE]");
                 Environment.Exit(1);
                 break;
         }
@@ -40,7 +58,6 @@ public class UgcUrlPatcher
         Dictionary<string, UgcUrl> ugcUrlByKey = new();
         using (StreamReader reader = new(File.OpenRead(mappingFilePath)))
         {
-            Regex ugcUrlRegex = UgcUrl.Regex();
             string? line;
             while ((line = reader.ReadLine()) != null)
             {
@@ -53,62 +70,55 @@ public class UgcUrlPatcher
                 string key = registeredName[0..underscoreIndex];
                 registeredName = registeredName[(underscoreIndex + 1)..];
 
-                Match match = ugcUrlRegex.Match(tokens[1]);
-                Debug.Assert(match.Success);
-                ulong ugcHandle = ulong.Parse(match.Groups[1].Value);
-                string sha1 = match.Groups[2].Value;
-
-                UgcUrl newUgcUrl = new(ugcHandle, sha1);
-                if (!ugcUrlByKey.TryGetValue(key, out UgcUrl oldUgcUrl))
+                UgcUrl? newUgcUrl = UgcUrl.Parse(tokens[1]);
+                if (newUgcUrl is not null)
                 {
-                    ugcUrlByKey.TryAdd(key, newUgcUrl);
+                    if (!ugcUrlByKey.TryGetValue(key, out UgcUrl oldUgcUrl))
+                    {
+                        ugcUrlByKey.TryAdd(key, newUgcUrl.Value);
+                    }
+                    else if (oldUgcUrl != newUgcUrl)
+                    {
+                        Console.Error.WriteLine($"Duplicated content {key} ({registeredName})");
+                    }
                 }
-                else if (!oldUgcUrl.Equals(newUgcUrl))
+                else
                 {
-                    Console.Error.WriteLine($"Duplicated content {key} ({registeredName})");
+                    Console.Error.WriteLine($"Malformed UGC URL: '{tokens[1]}'");
                 }
             }
         }
-        //ugcUrlByKey.Select(kvp => kvp.Key).ToList().ForEach(element => Console.WriteLine($"{element}"));
         return ugcUrlByKey;
     }
 
-    private static void ProcessingText(Dictionary<string, UgcUrl> ugcUrlByChecksum, TextReader reader)
+    private static void ProcessingText(Dictionary<string, UgcUrl> ugcUrlByChecksum, TextReader reader, TextWriter writer)
     {
-        HashSet<UgcUrl> urls = new();
-
-        Regex regex = UgcUrl.Regex();
         string? line;
         while ((line = reader.ReadLine()) != null)
         {
             int startIndex = 0;
             while (true)
             {
-                Match match = regex.Match(line, startIndex);
-                if (match.Success)
+                (UgcUrl? ugcUrl, int beginIndex, int endIndex) = UgcUrl.Find(line, startIndex);
+                if (ugcUrl is not null)
                 {
-                    startIndex = match.Index + match.Length;
-
-                    ulong ugcHandle = ulong.Parse(match.Groups[1].Value);
-                    string sha1 = match.Groups[2].Value;
-                    UgcUrl ugcUrl = new(ugcHandle, sha1);
-
-                    if (ugcUrlByChecksum.TryGetValue(sha1, out UgcUrl newUgcUrl) && !newUgcUrl.Equals(ugcUrl))
+                    writer.Write(line.AsSpan(startIndex, beginIndex - startIndex));
+                    startIndex = endIndex;
+                    if (ugcUrlByChecksum.TryGetValue(ugcUrl.Value.Sha1, out UgcUrl newUgcUrl) && newUgcUrl != ugcUrl)
                     {
-                        Console.Out.WriteLine($"{ugcUrl} -> {newUgcUrl}");
-                        // TODO replace.
+                        writer.Write(newUgcUrl);
+                    }
+                    else
+                    {
+                        writer.Write(ugcUrl);
                     }
                 }
                 else
                 {
+                    writer.WriteLine(line.AsSpan(startIndex));
                     break;
                 }
             }
-        }
-
-        foreach (UgcUrl url in urls)
-        {
-            Console.WriteLine(url);
         }
     }
 }

@@ -26,6 +26,9 @@ class LocalFileSystem
             byte[] data = File.ReadAllBytes(fileInfo.FullName);
             string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
 
+            // Stick to the UNIX format (which is also used by TTS) to ease comparisons.
+            string folder = Path.GetFileName(remoteRootPath) + fileInfo.DirectoryName[localRootPath.Length..].Replace("\\", "/");
+
             LocalItem item = new()
             {
                 Name = fileInfo.Name,
@@ -33,14 +36,14 @@ class LocalFileSystem
                 Sha1 = sha1,
                 Date = fileInfo.CreationTime.ToString("d'/'M'/'yyyy' 'H':'mm':'ss tt"),
                 DirectoryName = fileInfo.DirectoryName,
-                Folder = Path.GetFileName(remoteRootPath) + fileInfo.DirectoryName[localRootPath.Length..],
+                Folder = folder,
             };
 
             UniKey key = new(item.Name, sha1);
 
             if (localItems.TryGetValue(key, out LocalItem oldItem))
             {
-                Console.WriteLine("Relocating " + item.Name + " from " + oldItem.Folder + " to " + item.Folder + " (TTS doesn't allow multiple instance of the same file.)");
+                Console.WriteLine("Relocating " + item.Name + " from " + oldItem.Folder + " to " + item.Folder + " (TTS doesn't allow multiple instances of the same file.)");
             }
 
             localItems.Add(key, item);
@@ -52,5 +55,4 @@ class LocalFileSystem
     {
         File.WriteAllBytes(DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_") + name, data);
     }
-
 }

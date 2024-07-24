@@ -3,9 +3,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!--AllowUnsafeBlocks>true</AllowUnsafeBlocks-->
     <StartupObject>TTSCloudSync.CommandLine</StartupObject>
   </PropertyGroup>
 
@@ -14,5 +16,25 @@
     <PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.3-beta1" />
     <PackageReference Include="Steamworks.NET" Version="20.1.0" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)'=='linux-x64'">
+    <NativeLibs Include="lib/linux-x64/libsteam_api.so" />
+    <NativeLibs Include="lib/linux-x64/*.sh" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)'=='win-x64'">
+    <NativeLibs Include="lib/win-x64/steam_api64.dll" />
+    <NativeLibs Include="lib/win-x64/*.bat" />
+  </ItemGroup>
+
+  <Target Name="CopyNativeLibs" AfterTargets="Publish">
+    <Message Text="Copy @(NativeLibs) to $(PublishDir)" Importance="high" />
+    <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(PublishDir)" />
+    <MakeDir Directories="dist"/>
+    <ZipDirectory
+      SourceDirectory="$(PublishDir)"
+      DestinationFile="dist/TTSCloudSync-$(RuntimeIdentifier).zip"
+      Overwrite="true" />
+  </Target>
 
 </Project>

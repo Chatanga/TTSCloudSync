@@ -9,6 +9,13 @@ class TabletopSimulatorCloud
 {
     public static readonly string TTS_APP_ID = "286160";
 
+    public static readonly HashSet<string> TTS_SPECIAL_FILE_NAMES = new(){
+        "WorkshopImageUpload.png",
+        "WorkshopUpload",
+        "CloudFolder.bson",
+        "CloudInfo.bson",
+    };
+
     public struct CloudItem
     {
         public string Name;
@@ -65,8 +72,7 @@ class TabletopSimulatorCloud
         string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
         foreach (var entry in cloudItems)
         {
-            //if (entry.Key.Name.ToUpper() == localItem.Name.ToUpper() && entry.Key.Sha1 == sha1)
-            if (entry.Key.Name.ToUpper() == localItem.Name.ToUpper())
+            if (entry.Key.Name.ToUpper() == localItem.Name.ToUpper() && entry.Key.Sha1 == sha1)
             {
                 return false;
             }
@@ -77,6 +83,7 @@ class TabletopSimulatorCloud
     public static void UploadTableOfContent(Dictionary<UniKey, CloudItem> cloudInfo)
     {
         Dictionary<string, CloudItem> rawCloudInfo = cloudInfo.ToDictionary(kvp => "" + kvp.Key.ToString(), kvp => kvp.Value);
+        //rawCloudInfo.ToList().ForEach(kvp => Console.Error.WriteLine($"{kvp.Key} -> {kvp.Value.Folder}"));
         byte[] cloudInfoData = ToBson(rawCloudInfo);
         SteamCloud.UploadFile("CloudInfo.bson", cloudInfoData);
 
@@ -93,6 +100,7 @@ class TabletopSimulatorCloud
         }
 
         List<string> folders = allFolders.ToList();
+        //folders.ForEach(f => Console.Error.WriteLine($"Folder: {f}"));
 
         byte[] folderData = ToBson(folders);
         SteamCloud.UploadFile("CloudFolder.bson", folderData);
@@ -123,5 +131,4 @@ class TabletopSimulatorCloud
         }
         return result;
     }
-
 }

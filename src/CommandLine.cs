@@ -1,7 +1,9 @@
 namespace TTSCloudSync;
 
-class CommandLine
+public class CommandLine
 {
+    public static readonly string VERSION = "1.0";
+
     private static void HandleException(object sender, UnhandledExceptionEventArgs e)
     {
         Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
@@ -11,6 +13,7 @@ class CommandLine
     {
         AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
 
+        Console.Error.WriteLine($"[TTSCloudSync {VERSION}]");
         if (args.Length > 0)
         {
             string toolName = args[0];
@@ -40,5 +43,10 @@ class CommandLine
             Console.Error.WriteLine("No tool specified!");
             Environment.Exit(1);
         }
+    }
+
+    private CommandLine()
+    {
+        // Not constructible.
     }
 }

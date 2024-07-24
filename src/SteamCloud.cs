@@ -18,11 +18,13 @@ partial class SteamCloud
 
     public static void ConnectToSteam(string appId)
     {
+        // Ignored (not the right process?).
         Environment.SetEnvironmentVariable("SteamAppID", appId);
         //bool initialized = SteamAPI.Init();
         bool initialized = false;
         if (!initialized)
         {
+            Console.Error.WriteLine("Failure");
             // SteamAPI uses the app id from the environment variable, but if it's
             // not available, it uses a steam_appid file.
             File.WriteAllText("steam_appid.txt", appId);
@@ -63,6 +65,10 @@ partial class SteamCloud
             {
                 name = name[(sha1.Length + 1)..];
             }
+            else if (!TabletopSimulatorCloud.TTS_SPECIAL_FILE_NAMES.Contains(fileName))
+            {
+                Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
+            }
 
             RemoteItem item = new()
             {
@@ -72,7 +78,10 @@ partial class SteamCloud
                 Sha1 = sha1,
             };
 
-            remoteItems.Add(new UniKey(name, sha1), item);
+            if (!remoteItems.TryAdd(new UniKey(name, sha1), item))
+            {
+                Console.Error.WriteLine($"Ignoring remote item '{fileName}'.");
+            }
         }
         return remoteItems;
     }
@@ -87,8 +96,10 @@ partial class SteamCloud
 
     public static void DeleteFile(string name, string? sha1)
     {
-        List<string> potentialNames = new();
-        potentialNames.Add(name);
+        List<string> potentialNames = new()
+        {
+            name
+        };
         if (sha1 != null)
         {
             int underscoreIndex = name.IndexOf(sha1);
@@ -101,33 +112,44 @@ partial class SteamCloud
                 potentialNames.Add($"{sha1}_{name}");
             }
         }
+        bool deleted = false;
         foreach (string potentialName in potentialNames)
         {
             if (SteamRemoteStorage.FileDelete(potentialName))
             {
-                return;
+                deleted = true;
             }
         }
-        Console.Error.WriteLine("Failed to delete file: " + name);
+        if (!deleted)
+        {
+            Console.Error.WriteLine("Failed to delete file: " + name);
+        }
     }
 
+    // TTS use the combination of the file name and sha1 for the shared name
+    // and TTS expects it to properly delete it when done though its UI.
+    public static string ToSteamName(string sha1, string name)
+    {
+        return $"{sha1}_{name}";
+    }
+
+    // Beware: the naming rule is not the same here (only used for metadata file)!
     public static void UploadFile(string name, byte[] data)
     {
-        string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
-        if (!SteamRemoteStorage.FileWrite($"{sha1}_{name}", data, data.Length))
+        if (!SteamRemoteStorage.FileWrite(name, data, data.Length))
         {
             Console.Error.WriteLine("Failed to upload file: " + name);
         }
     }
 
-    public static bool UploadFileAndShare(string name, byte[] data, [NotNullWhen(true)] out RemoteItem? remoteItem, [NotNullWhen(true)] out string? URL)
+    public static bool UploadFileAndShare(string name, byte[] data, [NotNullWhen(true)] out RemoteItem? remoteItem, [NotNullWhen(true)] out UgcUrl? ugcUrl)
     {
-        if (SteamRemoteStorage.FileWrite(name, data, data.Length))
+        string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
+        if (SteamRemoteStorage.FileWrite(ToSteamName(sha1, name), data, data.Length))
         {
-            string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
             var sharer = new FileSharer(name, sha1);
             sharer.Share().Wait();
-            Debug.Assert(sharer.URL != null);
+            Debug.Assert(sharer.UgcUrl != null);
             remoteItem = new RemoteItem()
             {
                 Name = name,
@@ -135,13 +157,13 @@ partial class SteamCloud
                 Size = data.Length,
                 Sha1 = sha1,
             };
-            URL = sharer.URL;
+            ugcUrl = sharer.UgcUrl;
             return true;
         }
         else
         {
             remoteItem = null;
-            URL = null;
+            ugcUrl = null;
             return false;
         }
     }
@@ -152,7 +174,7 @@ partial class SteamCloud
         public readonly string Name;
         private readonly string Sha1;
         private bool Finished;
-        public string? URL;
+        public UgcUrl? UgcUrl;
 
         public FileSharer(string name, string sha1)
         {
@@ -160,33 +182,32 @@ partial class SteamCloud
             Name = name;
             Sha1 = sha1;
             Finished = false;
-            URL = "";
+            UgcUrl = null;
         }
 
-        public async Task<string?> Share()
+        public async Task<UgcUrl?> Share()
         {
-            // TTS use the combination of the file name and sha1 for the shared name
-            // and TTS expects it to properly delete it when done though its UI.
-            var ret = SteamRemoteStorage.FileShare($"{Sha1}_{Name}");
-            Callback.Set(ret);
+            var result = SteamRemoteStorage.FileShare(ToSteamName(Sha1, Name));
+            Callback.Set(result);
             while (!Finished)
             {
                 SteamAPI.RunCallbacks();
                 await Task.Delay(100);
             }
-            return URL;
+            return UgcUrl;
         }
 
         private void OnShareFinished(RemoteStorageFileShareResult_t result, bool fail)
         {
             if (fail || result.m_eResult != EResult.k_EResultOK)
             {
-                URL = null;
+                Console.Error.WriteLine($"Failed to share the file '{Name}' ({result.m_eResult}).");
+                UgcUrl = null;
                 Finished = true;
             }
             else
             {
-                URL = "http://cloud-3.steamusercontent.com/ugc/" + result.m_hFile.ToString() + "/" + Sha1 + "/";
+                UgcUrl = new UgcUrl((ulong)result.m_hFile, Sha1);
                 Finished = true;
             }
         }

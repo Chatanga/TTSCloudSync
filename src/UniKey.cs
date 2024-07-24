@@ -7,10 +7,10 @@ Union of all the unicity rules for the local file system, Steam Cloud and TSS
 index. In fact, it happens to be the rules for the Steam Cloud alone since it
 doesn't support folders and is case insensitive.
 */
-public class UniKey : IEquatable<UniKey>
+class UniKey : IEquatable<UniKey>
 {
-    public string Name { get; private set; }
-    public string Sha1 { get; private set; }
+    public string Name { get; }
+    public string Sha1 { get; }
 
     public UniKey(string name)
     {
@@ -26,11 +26,11 @@ public class UniKey : IEquatable<UniKey>
         Sha1 = sha1;
     }
 
-    public override bool Equals(object? obj) => obj is UniKey other && Equals(other);
-
     public bool Equals(UniKey? other) => other is not null && Name == other.Name && Sha1 == other.Sha1;
 
-    public override int GetHashCode() => (Name.ToUpper(), Sha1).GetHashCode();
+    public override bool Equals(object? obj) => obj is UniKey other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(Name, Sha1);
 
     public static bool operator ==(UniKey lhs, UniKey rhs) => lhs.Equals(rhs);
 
