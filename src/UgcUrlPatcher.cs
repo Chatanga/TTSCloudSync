@@ -47,7 +47,7 @@ class UgcUrlPatcher
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: patch-ugc-url [--no-backup] [-i] MAPPING [SAVE]");
+                Console.Error.WriteLine("Usage: patch-ugc-url [-i] [--no-backup] MAPPING [SAVE]");
                 Environment.Exit(1);
                 break;
         }

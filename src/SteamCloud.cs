@@ -212,4 +212,92 @@ partial class SteamCloud
             }
         }
     }
+
+    public static bool DownloadFile(string url, string directoryName, string name)
+    {
+        UgcUrl? ugcUrl = UgcUrl.Parse(url);
+        if (ugcUrl is not null)
+        {
+            UGCHandle_t hContent = new(ugcUrl.Value.Handle);
+            var downloader = new FileDownloader(hContent, directoryName, name);
+            Task<bool> task = downloader.Download();
+            task.Wait();
+            if (task.Result)
+            {
+                return true;
+            }
+            else
+            {
+                Console.Error.WriteLine("Failed to donwnload content: " + hContent);
+            }
+        }
+        else
+        {
+            Console.Error.WriteLine("Malformed UGC URL: " + url);
+        }
+        return false;
+    }
+
+    private class FileDownloader
+    {
+        private readonly UGCHandle_t Handle;
+        private readonly string DirectoryName;
+        private readonly string Name;
+        private readonly CallResult<RemoteStorageDownloadUGCResult_t> Callback;
+        private bool success;
+        private bool Finished;
+
+        public FileDownloader(UGCHandle_t handle, string directoryName, string name)
+        {
+            Handle = handle;
+            DirectoryName = directoryName;
+            Name = name;
+            Callback = CallResult<RemoteStorageDownloadUGCResult_t>.Create(OnDownloadFinished);
+        }
+
+        public async Task<bool> Download()
+        {
+            var ret = SteamRemoteStorage.UGCDownload(Handle, 0);
+            Callback.Set(ret);
+            while (!Finished)
+            {
+                SteamAPI.RunCallbacks();
+                await Task.Delay(100);
+            }
+            return success;
+        }
+
+        private void OnDownloadFinished(RemoteStorageDownloadUGCResult_t result, bool fail)
+        {
+            if (fail || result.m_eResult != EResult.k_EResultOK)
+            {
+                success = false;
+                Finished = true;
+            }
+            else
+            {
+                Directory.CreateDirectory(DirectoryName);
+
+                string filePath = Path.Combine(DirectoryName, Name);
+                using (BinaryWriter binWriter = new(File.Open(filePath, FileMode.Create)))
+                {
+                    byte[] data = new byte[4096];
+                    uint start = 0;
+                    while (true)
+                    {
+                        int readCount = SteamRemoteStorage.UGCRead(Handle, data, data.Length, start, EUGCReadAction.k_EUGCRead_ContinueReadingUntilFinished);
+                        binWriter.Write(data, 0, readCount);
+                        start += (uint)readCount;
+                        if (readCount < data.Length)
+                        {
+                            break;
+                        }
+                    }
+                }
+
+                success = true;
+                Finished = true;
+            }
+        }
+    }
 }
