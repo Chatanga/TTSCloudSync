@@ -15,7 +15,8 @@ class UgcUrlExtractor
         """
 
         Extract all the URLs for UGC (User-Generated Content) resources found in a JSON
-        save (any kind of text file actually).
+        save (any kind of text file actually). Lua scripts are parsed along with the
+        rest, but if the mod creates UGC URLs procedurally, the tool won't find them.
 
         """;
 
@@ -65,7 +66,7 @@ class UgcUrlExtractor
                 {
                     if (ugcUrls.Add(ugcUrl.Value))
                     {
-                        Console.WriteLine(ugcUrl);
+                        Console.Out.WriteLine(ugcUrl);
                     }
                     startIndex = endIndex;
                 }

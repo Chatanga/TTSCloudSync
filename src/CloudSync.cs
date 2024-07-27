@@ -81,12 +81,18 @@ class CloudSync
                 break;
         }
 
+        if (!Directory.Exists(localRoot))
+        {
+            Console.Error.WriteLine($"Local directory '{localRoot}' doesn't exist.");
+            Environment.Exit(1);
+        }
+
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
             SPath localRootPath = SPath.FromNativePath(Path.GetFullPath(localRoot));
-            SPath remoteRootPath = SPath.FromTTSPath(remoteRoot);
-            new CloudSync(localRootPath, remoteRootPath, push, dryRun).Synchronize();
+            SPath remoteRootFolder = SPath.FromTTSPath(remoteRoot);
+            new CloudSync(localRootPath, remoteRootFolder, push, dryRun).Synchronize();
         }
         finally
         {
@@ -110,12 +116,12 @@ class CloudSync
 
     // Shared = listed in the Steam Cloud (which is a flat list of files by the way).
     // Known = listed in TTS CloudInfo.bson file (which is a hierarchical directory layer).
-    public CloudSync(SPath localRootPath, SPath remoteRootPath, bool push, bool dryRun)
+    public CloudSync(SPath localRootPath, SPath remoteRootFolder, bool push, bool dryRun)
     {
         LocalRootPath = localRootPath;
-        RemoteRootFolder = remoteRootPath;
+        RemoteRootFolder = remoteRootFolder;
 
-        FileItems = LocalFileSystem.ListItems(localRootPath, remoteRootPath);
+        FileItems = LocalFileSystem.ListItems(LocalRootPath, RemoteRootFolder);
         RemoteItems = SteamCloud.ListItems();
         CloudItems = TabletopSimulatorCloud.ListItems();
 
@@ -432,7 +438,7 @@ class CloudSync
         {
             if (entry.Value.URL != "undefined")
             {
-                Console.WriteLine(entry.Key + ";" + entry.Value.URL);
+                Console.Out.WriteLine(entry.Key + ";" + entry.Value.URL);
             }
             else if (!DryRun)
             {

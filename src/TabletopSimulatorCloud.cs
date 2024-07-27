@@ -38,35 +38,39 @@ class TabletopSimulatorCloud
 
     public static Dictionary<UniKey, CloudItem> ListItems()
     {
-        if (!SteamRemoteStorage.FileExists("CloudInfo.bson"))
+        if (SteamRemoteStorage.FileExists("CloudInfo.bson"))
         {
-            throw new Exception("Missing TTS 'CloudInfo.bson' file.");
+            var data = SteamCloud.GetFile("CloudInfo.bson");
+            var rawCloudInfo = ParseBson<Dictionary<string, CloudItem>>(data);
+            if (rawCloudInfo is null)
+            {
+                throw new Exception("Malformed 'CloudInfo.bson' file.");
+            }
+            return rawCloudInfo.ToDictionary(kvp => new UniKey(kvp.Key), kvp => kvp.Value);
         }
-        var data = SteamCloud.GetFile("CloudInfo.bson");
-        //LocalFileSystem.BackupFile("CloudInfo.bson", data);
-
-        var rawCloudInfo = ParseBson<Dictionary<string, CloudItem>>(data);
-        if (rawCloudInfo is null)
+        else
         {
-            throw new Exception("Malformed 'CloudInfo.bson' file.");
+            return new Dictionary<UniKey, CloudItem>();
         }
-        return rawCloudInfo.ToDictionary(kvp => new UniKey(kvp.Key), kvp => kvp.Value);
     }
 
     public static List<string> ListFolders()
     {
-        if (!SteamRemoteStorage.FileExists("CloudFolder.bson"))
+        if (SteamRemoteStorage.FileExists("CloudFolder.bson"))
         {
-            throw new Exception("Missing TTS 'CloudFolder.bson' file.");
-        }
-        var data = SteamCloud.GetFile("CloudFolder.bson");
+            var data = SteamCloud.GetFile("CloudFolder.bson");
 
-        var cloudFolder = ParseBson<List<string>>(data);
-        if (cloudFolder is null)
-        {
-            throw new Exception("Malformed 'CloudFolder.bson' file.");
+            var cloudFolder = ParseBson<List<string>>(data);
+            if (cloudFolder is null)
+            {
+                throw new Exception("Malformed 'CloudFolder.bson' file.");
+            }
+            return cloudFolder;
         }
-        return cloudFolder;
+        else
+        {
+            return new List<string>();
+        }
     }
 
     public static bool IsDistinct(Dictionary<UniKey, CloudItem> cloudItems, LocalFileSystem.LocalItem localItem, byte[] data)

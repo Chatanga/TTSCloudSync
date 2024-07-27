@@ -1,14 +1,15 @@
 using Steamworks;
+using System.Text.RegularExpressions;
 
 namespace TTSCloudSync;
 
-class UgcResourceDownloader
+partial class UgcResourceDownloader
 {
     private static readonly string USAGE =
         """
 
         Usage:
-            download-ugc-resources [-o OUTPUT_DIR] [FILE]
+            download-ugc-resources [--no-sha1] [-o OUTPUT_DIR] [FILE]
         """;
 
     private static readonly string DESCRIPTION =
@@ -27,15 +28,22 @@ class UgcResourceDownloader
             --help
                 This documentation.
 
+            --no-sha1
+                Do not prepend resource names with their checksum (SHA1).
+
             --o directory
                 To directory where to store the resources.
 
         """;
 
+    [GeneratedRegex("[0-9A-Z]+_")]
+    private static partial Regex Sha1PrefixRegex();
+
     public static void Main(string[] args)
     {
         CommandLineParser parser = new();
         parser.AddOption("--help");
+        parser.AddOption("--no-sha1");
         parser.AddOption("-o", true);
         (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
 
@@ -46,18 +54,25 @@ class UgcResourceDownloader
             Environment.Exit(0);
         }
 
+        bool noSha1 = options.ContainsKey("--no-sha1");
         string outputDir = options.GetValueOrDefault("-o") ?? ".";
+
+        if (!Directory.Exists(outputDir))
+        {
+            Console.Error.WriteLine($"Output directory '{outputDir}' doesn't exist.");
+            Environment.Exit(1);
+        }
 
         switch (arguments.Count)
         {
             case 0:
-                ProcessingText(Console.In, outputDir);
+                ProcessingText(Console.In, noSha1, outputDir);
                 break;
             case 1:
                 using (StreamReader reader = new(File.OpenRead(arguments[0])))
                 {
-                    Console.WriteLine(arguments[0] + " - " + outputDir);
-                    ProcessingText(reader, outputDir);
+                    Console.Out.WriteLine(arguments[0] + " - " + outputDir);
+                    ProcessingText(reader, noSha1, outputDir);
                 }
                 break;
             default:
@@ -67,12 +82,12 @@ class UgcResourceDownloader
         }
     }
 
-    private static void ProcessingText(TextReader reader, string outputDir)
+    private static void ProcessingText(TextReader reader, bool noSha1, string outputDir)
     {
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
-            Console.WriteLine("waiting...");
+            Console.Out.WriteLine("waiting...");
 
             string? url;
             while ((url = reader.ReadLine()) != null)
@@ -81,12 +96,12 @@ class UgcResourceDownloader
                 if (ugcUrl is not null)
                 {
                     UGCHandle_t hContent = new(ugcUrl.Value.Handle);
-                    var downloader = new FileDownloader(hContent, outputDir);
+                    var downloader = new FileDownloader(hContent, noSha1, outputDir);
                     Task<bool> task = downloader.Download();
                     task.Wait();
                     if (task.Result)
                     {
-                        Console.WriteLine(url + " -> success");
+                        Console.Out.WriteLine(url + " -> success");
                     }
                     else
                     {
@@ -108,14 +123,16 @@ class UgcResourceDownloader
     private class FileDownloader
     {
         private readonly UGCHandle_t Handle;
+        private readonly bool NoSha1;
         private readonly string OutputDir;
         private readonly CallResult<RemoteStorageDownloadUGCResult_t> Callback;
         private bool success;
         private bool Finished;
 
-        public FileDownloader(UGCHandle_t handle, string outputDir)
+        public FileDownloader(UGCHandle_t handle, bool noSha1, string outputDir)
         {
             Handle = handle;
+            NoSha1 = noSha1;
             OutputDir = outputDir;
             Callback = CallResult<RemoteStorageDownloadUGCResult_t>.Create(OnDownloadFinished);
         }
@@ -144,7 +161,23 @@ class UgcResourceDownloader
                 string path = Path.Combine(OutputDir, $"{result.m_ulSteamIDOwner}");
                 Directory.CreateDirectory(path);
 
-                string filePath = Path.Combine(path, result.m_pchFileName);
+                string fileName = result.m_pchFileName;
+                if (NoSha1)
+                {
+                    Regex regex = Sha1PrefixRegex();
+                    Match match = regex.Match(fileName);
+                    if (match.Success && match.Index == 0)
+                    {
+                        fileName = fileName[match.Length..];
+                        if (File.Exists(Path.Combine(path, fileName)))
+                        {
+                            Console.Error.WriteLine($"Forcing SHA1 prefix to avoid name collision with file '{fileName}'.");
+                            fileName = result.m_pchFileName;
+                        }
+                    }
+                }
+
+                string filePath = Path.Combine(path, fileName);
                 using (BinaryWriter binWriter = new(File.Open(filePath, FileMode.Create)))
                 {
                     byte[] data = new byte[4096];

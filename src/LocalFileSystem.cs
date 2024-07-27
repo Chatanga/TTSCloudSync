@@ -46,10 +46,13 @@ class LocalFileSystem
 
             if (localItems.TryGetValue(key, out LocalItem oldItem))
             {
-                Console.WriteLine($"Relocating {item.Name} from {oldItem.Folder} to {item.Folder} (TTS doesn't allow multiple instances of the same file.)");
+                Console.Error.WriteLine($"Skipping duplicate resource (same name and SHA1) '{item.Name}' found in '{oldItem.Folder}' and '{item.Folder}'.");
+                Console.Error.WriteLine($"(TTS doesn't allow multiple instances of the same file.)");
             }
-
-            localItems.Add(key, item);
+            else
+            {
+                localItems.Add(key, item);
+            }
         }
         return localItems;
     }

@@ -18,12 +18,11 @@ partial class SteamCloud
     public static void ConnectToSteam(string appId)
     {
         // Ignored (not the right process?).
-        Environment.SetEnvironmentVariable("SteamAppID", appId);
+        //Environment.SetEnvironmentVariable("SteamAppID", appId);
         //bool initialized = SteamAPI.Init();
         bool initialized = false;
         if (!initialized)
         {
-            Console.Error.WriteLine("Failure");
             // SteamAPI uses the app id from the environment variable, but if it's
             // not available, it uses a steam_appid file.
             File.WriteAllText("steam_appid.txt", appId);
@@ -63,7 +62,7 @@ partial class SteamCloud
             }
             else if (!TabletopSimulatorCloud.TTS_SPECIAL_FILE_NAMES.Contains(fileName))
             {
-                //TODO Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
+                Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
             }
 
             RemoteItem item = new()

@@ -6,7 +6,7 @@ public class CommandLine
 
     private static void HandleException(object sender, UnhandledExceptionEventArgs e)
     {
-        Console.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
+        Console.Error.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
     }
 
     static void Main(string[] args)

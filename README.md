@@ -10,13 +10,14 @@ another tool which may interests you if you are on Windows and prefer a graphica
 There are actually 4 command line tools to combine to update a TTS cloud.
 
 ```bash
-extract-ugc-url [SAVE] [> URL_LST]
+extract-ugc-url [--help] [SAVE] [> URL_LST]
 ```
 
 Extract all the URLs for UGC (User-Generated Content) resources found in a JSON save (any kind of text file actually).
+Lua scripts are parsed along with the rest, but if the mod creates UGC URLs procedurally, the tool won't find them.
 
 ```bash
-download-ugc-resources [-o OUTPUT_DIR] [FILE]
+download-ugc-resources [--help] [--no-sha1] [-o OUTPUT_DIR] [FILE]
 ```
 
 Download the UGC URLs from a file (or the standard input) and store them in the provided output directory (or the current one).
@@ -24,10 +25,10 @@ Each resource ends up in a subdirectory named after the Steam ID of its owner.
 *Important: the Steam client must be running for this command to work.*
 
 ```bash
-sync-with-cloud [--pull] [--dry-run] LOCAL_PATH [TTS_STEAM_CLOUD_PATH] [> MAPPING]
+sync-with-cloud [--help] [--pull] [--dry-run] LOCAL_PATH [TTS_STEAM_CLOUD_PATH] [> MAPPING]
 ```
 
-Synchronise your Steam cloud for Tabletop Simulator with a local path, adding, removing or moving resource to match your local path content.
+Synchronise your Steam cloud for Tabletop Simulator with a local path, adding, removing or moving resources to match your local path content.
 (When simply moved around, the shared URL of a resource remains the same.)
 Implicitly, all resources will be shared on your cloud and the tool will output the updated mapping:
 *Important: the Steam client must be running for this command to work.*
@@ -47,11 +48,11 @@ but you can't have the exact same file (same name and sha1) in two different dir
 Doing so remove the oldest duplicate (an operation the TTS layer is not detecting, leaving a ghost entry in its index).
 
 In addition, when a file is uploaded into a TTS cloud, it is also shared under an arbitrary UGC URL.
-Deleting then uploading the exact same file will lead to a different UGC URL, leading to broken links in mod saves you have no control over.
+Deleting then uploading the exact same file will generate a different UGC URL, leading to broken links in mod saves you have no control over.
 Simply moving a file using the TTS UI won't republish it hovewer, keeping its UGC URL stable.
 
 ```bash
-patch-ugc-url [-i] [--no-backup] MAPPING [SAVE]
+patch-ugc-url [--help] [-i] [--no-backup] MAPPING [SAVE]
 ```
 
 Patch all UGC URLs in the provided save (or standard input) to use one from your cloud with the same SHA1 (whatever the name) if one exists.
@@ -61,10 +62,11 @@ Patch all UGC URLs in the provided save (or standard input) to use one from your
 Here is a typical worflow is to rehost part or all of the resources of an existing mod save:
 
 ```bash
-TTS_DIR="$HOME/.local/share/Tabletop Simulator/Mods"
+TTS_DIR="$HOME/.local/share/Tabletop Simulator"
+mkdir resources
 
-# 1. Download all the resources of a save,
-extract-ugc-url "$TTS_DIR/Workshop/1234567890.json" | download-ugc-resources -o resources
+# 1. Download all the resources of a save.
+extract-ugc-url "$TTS_DIR/Mods/Workshop/1234567890.json" | download-ugc-resources --no-sha1 -o resources
 
 # 2. Tidy up and rearrange the content of the "resources" directory.
 # You can very well choose to remove some resources you want to keep outside your cloud.
@@ -73,7 +75,7 @@ extract-ugc-url "$TTS_DIR/Workshop/1234567890.json" | download-ugc-resources -o 
 sync-with-cloud resources "my_mod_name" > mapping.lst
 
 # 4. Patch the mod to use your own resources when available.
-patch-ugc-url mapping.lst "$TTS_DIR/Workshop/1234567890.json" > "$TTS_DIR/Saves/TS_Save_100.json"
+patch-ugc-url mapping.lst "$TTS_DIR/Mods/Workshop/1234567890.json" > "$TTS_DIR/Saves/TS_Save_100.json"
 ```
 
 This way, you can easily relocate all the resources into your cloud to avoid any dead links in the future.
@@ -81,10 +83,11 @@ This way, you can easily relocate all the resources into your cloud to avoid any
 The previous example run on Linux, but the Windows version is almost the same:
 
 ```batch
-set TTS_DIR="%UserProfile%\Documents\Tabletop Simulator\Mods"
+set TTS_DIR=%UserProfile%\Documents\My Games\Tabletop Simulator
+md resources
 
-rem 1. Download all the resources of a save,
-extract-ugc-url "%TTS_DIR%\Workshop\1234567890.json" | download-ugc-resources -o resources
+rem 1. Download all the resources of a save.
+extract-ugc-url "%TTS_DIR%\Mods\Workshop\1234567890.json" | download-ugc-resources --no-sha1 -o resources
 
 rem 2. Tidy up and rearrange the content of the "resources" directory.
 rem You can very well choose to remove some resources you want to keep outside your cloud.
@@ -93,7 +96,7 @@ rem 3. Push everything into your cloud (sync-with-cloud).
 sync-with-cloud resources "my_mod_name" > mapping.lst
 
 rem 4. Patch the mod to use your own resources when available.
-patch-ugc-url mapping.lst "%TTS_DIR%\Workshop\1234567890.json" > "%TTS_DIR%\Saves\TS_Save_100.json"
+patch-ugc-url mapping.lst "%TTS_DIR%\Mods\Workshop\1234567890.json" > "%TTS_DIR%\Saves\TS_Save_100.json"
 ```
 
 ## How to build & install
@@ -107,6 +110,8 @@ dotnet publish --os win
 
 Each call create a corresponding ZIP file in `dist`.
 Simply unzip the file matching your OS somewhere and run the scripts from there (or add the created directory in you `PATH`).
+
+Alternatively, you can download the latest [release from GitHub](https://github.com/Chatanga/TTSCloudSync/releases).
 
 ## API SteamWork
 
