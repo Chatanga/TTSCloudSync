@@ -4,12 +4,49 @@ namespace TTSCloudSync;
 
 class UgcUrlPatcher
 {
+
+    private static readonly string USAGE =
+        """
+
+        Usage:
+            patch-ugc-url [-i] [--no-backup] MAPPING [SAVE]
+        """;
+
+    private static readonly string DESCRIPTION =
+        """
+
+        Patch all UGC URLs in the provided save (or standard input) to use one
+        from your cloud with the same SHA1 (whatever the name) if one exists.
+
+        Options:
+
+            --help
+                This documentation.
+
+            -i
+                Modify the SAVE file (if provided) in place instead of outputting the
+                patched content.
+
+            --no-backup
+                Do not create a backup of the modified file if the in place option is
+                enabled.
+
+        """;
+
     public static void Main(string[] args)
     {
         CommandLineParser parser = new();
+        parser.AddOption("--help");
         parser.AddOption("-i");
         parser.AddOption("--no-backup");
         (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
+
+        if (options.ContainsKey("--help"))
+        {
+            Console.Out.WriteLine(USAGE);
+            Console.Out.WriteLine(DESCRIPTION);
+            Environment.Exit(0);
+        }
 
         bool inPlace = options.ContainsKey("-i");
         bool noBackup = options.ContainsKey("--no-backup");
@@ -47,7 +84,7 @@ class UgcUrlPatcher
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: patch-ugc-url [-i] [--no-backup] MAPPING [SAVE]");
+                Console.Error.WriteLine(USAGE);
                 Environment.Exit(1);
                 break;
         }

@@ -3,7 +3,7 @@
 Synchronise a local folder with the Tabletop Simulator cloud.
 
 Note: this tool is loosely based on [tts-cloud-manager](https://github.com/leberechtreinhold/tts-cloud-manager),
-another tool you may interest you if you are on Windows and prefer a graphical user interface.
+another tool which may interests you if you are on Windows and prefer a graphical user interface.
 
 ## Commands
 
@@ -16,7 +16,7 @@ extract-ugc-url [SAVE] [> URL_LST]
 Extract all the URLs for UGC (User-Generated Content) resources found in a JSON save (any kind of text file actually).
 
 ```bash
-download-ugc-resources [-o OUTPUT_DIR] [FILE]"
+download-ugc-resources [-o OUTPUT_DIR] [FILE]
 ```
 
 Download the UGC URLs from a file (or the standard input) and store them in the provided output directory (or the current one).
@@ -96,7 +96,7 @@ rem 4. Patch the mod to use your own resources when available.
 patch-ugc-url mapping.lst "%TTS_DIR%\Workshop\1234567890.json" > "%TTS_DIR%\Saves\TS_Save_100.json"
 ```
 
-## How to build
+## How to build & install
 
 Once you've installed the .NET 7.0 framework:
 
@@ -104,6 +104,9 @@ Once you've installed the .NET 7.0 framework:
 dotnet publish --os linux
 dotnet publish --os win
 ```
+
+Each call create a corresponding ZIP file in `dist`.
+Simply unzip the file matching your OS somewhere and run the scripts from there (or add the created directory in you `PATH`).
 
 ## API SteamWork
 

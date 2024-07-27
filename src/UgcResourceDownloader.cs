@@ -4,6 +4,107 @@ namespace TTSCloudSync;
 
 class UgcResourceDownloader
 {
+    private static readonly string USAGE =
+        """
+
+        Usage:
+            download-ugc-resources [-o OUTPUT_DIR] [FILE]
+        """;
+
+    private static readonly string DESCRIPTION =
+        """
+
+        Important:
+            A Steam client with the TTS application must be running for this command to
+            work.
+
+        Download the UGC URLs from a file (or the standard input) and store them in the
+        provided output directory (or the current one). Each resource ends up in a
+        subdirectory named after the Steam ID of its owner.
+
+        Options:
+
+            --help
+                This documentation.
+
+            --o directory
+                To directory where to store the resources.
+
+        """;
+
+    public static void Main(string[] args)
+    {
+        CommandLineParser parser = new();
+        parser.AddOption("--help");
+        parser.AddOption("-o", true);
+        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
+
+        if (options.ContainsKey("--help"))
+        {
+            Console.Out.WriteLine(USAGE);
+            Console.Out.WriteLine(DESCRIPTION);
+            Environment.Exit(0);
+        }
+
+        string outputDir = options.GetValueOrDefault("-o") ?? ".";
+
+        switch (arguments.Count)
+        {
+            case 0:
+                ProcessingText(Console.In, outputDir);
+                break;
+            case 1:
+                using (StreamReader reader = new(File.OpenRead(arguments[0])))
+                {
+                    Console.WriteLine(arguments[0] + " - " + outputDir);
+                    ProcessingText(reader, outputDir);
+                }
+                break;
+            default:
+                Console.Error.WriteLine(USAGE);
+                Environment.Exit(1);
+                break;
+        }
+    }
+
+    private static void ProcessingText(TextReader reader, string outputDir)
+    {
+        SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
+        try
+        {
+            Console.WriteLine("waiting...");
+
+            string? url;
+            while ((url = reader.ReadLine()) != null)
+            {
+                UgcUrl? ugcUrl = UgcUrl.Parse(url);
+                if (ugcUrl is not null)
+                {
+                    UGCHandle_t hContent = new(ugcUrl.Value.Handle);
+                    var downloader = new FileDownloader(hContent, outputDir);
+                    Task<bool> task = downloader.Download();
+                    task.Wait();
+                    if (task.Result)
+                    {
+                        Console.WriteLine(url + " -> success");
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine(url + " -> unresolvable");
+                    }
+                }
+                else
+                {
+                    Console.Error.WriteLine(url + " -> not a proper URL");
+                }
+            }
+        }
+        finally
+        {
+            SteamAPI.Shutdown();
+        }
+    }
+
     private class FileDownloader
     {
         private readonly UGCHandle_t Handle;
@@ -63,71 +164,6 @@ class UgcResourceDownloader
                 success = true;
                 Finished = true;
             }
-        }
-    }
-
-    public static void Main(string[] args)
-    {
-        CommandLineParser parser = new();
-        parser.AddOption("-o", true);
-        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
-
-        string outputDir = options.GetValueOrDefault("-o") ?? ".";
-
-        switch (arguments.Count)
-        {
-            case 0:
-                ProcessingText(Console.In, outputDir);
-                break;
-            case 1:
-                using (StreamReader reader = new(File.OpenRead(arguments[0])))
-                {
-                    Console.WriteLine(arguments[0] + " - " + outputDir);
-                    ProcessingText(reader, outputDir);
-                }
-                break;
-            default:
-                Console.Error.WriteLine("Usage: download-ugc-resources [-o OUTPUT_DIR] [FILE]");
-                Environment.Exit(1);
-                break;
-        }
-    }
-
-    private static void ProcessingText(TextReader reader, string outputDir)
-    {
-        SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
-        try
-        {
-            Console.WriteLine("waiting...");
-
-            string? url;
-            while ((url = reader.ReadLine()) != null)
-            {
-                UgcUrl? ugcUrl = UgcUrl.Parse(url);
-                if (ugcUrl is not null)
-                {
-                    UGCHandle_t hContent = new(ugcUrl.Value.Handle);
-                    var downloader = new FileDownloader(hContent, outputDir);
-                    Task<bool> task = downloader.Download();
-                    task.Wait();
-                    if (task.Result)
-                    {
-                        Console.WriteLine(url + " -> success");
-                    }
-                    else
-                    {
-                        Console.Error.WriteLine(url + " -> unresolvable");
-                    }
-                }
-                else
-                {
-                    Console.Error.WriteLine(url + " -> not a proper URL");
-                }
-            }
-        }
-        finally
-        {
-            SteamAPI.Shutdown();
         }
     }
 }

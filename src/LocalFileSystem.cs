@@ -1,6 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Security.Cryptography;
-using Steamworks;
 
 namespace TTSCloudSync;
 
@@ -16,19 +16,21 @@ class LocalFileSystem
         public string Folder;
     }
 
-    public static Dictionary<UniKey, LocalItem> ListItems(string localRootPath, string remoteRootPath)
+    public static Dictionary<UniKey, LocalItem> ListItems(SPath localRootPath, SPath remoteRootPath)
     {
         Dictionary<UniKey, LocalItem> localItems = new();
-        DirectoryInfo dirInfo = new(localRootPath);
+        DirectoryInfo dirInfo = new(localRootPath.ToNativePath());
         foreach (var fileInfo in dirInfo.EnumerateFiles("*", SearchOption.AllDirectories))
         {
-            Debug.Assert(fileInfo.DirectoryName != null && fileInfo.DirectoryName.StartsWith(localRootPath));
+            Debug.Assert(fileInfo.DirectoryName != null);
 
             byte[] data = File.ReadAllBytes(fileInfo.FullName);
             string sha1 = BitConverter.ToString(SHA1.HashData(data)).Replace("-", "");
 
-            // Stick to the UNIX format (which is also used by TTS) to ease comparisons.
-            string folder = Path.GetFileName(remoteRootPath) + FromNativePath(fileInfo.DirectoryName[localRootPath.Length..]);
+            SPath? folder = SPath.FromNativePath(fileInfo.DirectoryName).Relativize(localRootPath);
+            Debug.Assert(folder != null);
+
+            folder = remoteRootPath.Combine(folder);
 
             LocalItem item = new()
             {
@@ -37,14 +39,14 @@ class LocalFileSystem
                 Sha1 = sha1,
                 Date = fileInfo.CreationTime.ToString("d'/'M'/'yyyy' 'H':'mm':'ss tt"),
                 DirectoryName = fileInfo.DirectoryName,
-                Folder = folder,
+                Folder = folder.ToTTSPath(),
             };
 
             UniKey key = new(item.Name, sha1);
 
             if (localItems.TryGetValue(key, out LocalItem oldItem))
             {
-                Console.WriteLine("Relocating " + item.Name + " from " + oldItem.Folder + " to " + item.Folder + " (TTS doesn't allow multiple instances of the same file.)");
+                Console.WriteLine($"Relocating {item.Name} from {oldItem.Folder} to {item.Folder} (TTS doesn't allow multiple instances of the same file.)");
             }
 
             localItems.Add(key, item);
@@ -58,78 +60,61 @@ class LocalFileSystem
         File.Delete(path);
     }
 
-    public static void MoveFile(LocalItem fileItem, string newFolder)
+    public static void MoveFile(SPath localRootPath, SPath remoteRootFolder, LocalItem fileItem, string newFolder)
     {
-        string path = Path.Combine(fileItem.DirectoryName, fileItem.Name);
-        string? oldPathSuffix = GetDirectorySuffix(ToNativePath(fileItem.Folder));
-        string? newPathSuffix = GetDirectorySuffix(ToNativePath(newFolder));
-        string newDirectoryName = Path.Combine(Sever(fileItem.DirectoryName, oldPathSuffix), newPathSuffix ?? "");
-        string newPath = Path.Combine(newDirectoryName, fileItem.Name);
-        Console.Error.WriteLine($"File.Move({path}, {newPath})");
-        File.Move(path, newPath);
-        fileItem.DirectoryName = newDirectoryName;
-        fileItem.Folder = newFolder;
+        SPath? oldFolderPath = SPath.FromNativePath(fileItem.Folder).Prune(remoteRootFolder);
+        SPath? newFolderPath = SPath.FromTTSPath(newFolder).Prune(remoteRootFolder);
+
+        if (oldFolderPath is not null && newFolderPath is not null)
+        {
+            SPath oldDirectoryPath = SPath.FromNativePath(fileItem.DirectoryName);
+            SPath newDirectoryPath = localRootPath.Combine(newFolderPath);
+
+            //Console.Error.WriteLine($"[DEBUG] oldFolderPath: {oldFolderPath}");
+            //Console.Error.WriteLine($"[DEBUG] newFolderPath: {newFolderPath}");
+            //Console.Error.WriteLine($"[DEBUG] oldDirectoryPath: {oldDirectoryPath}");
+            //Console.Error.WriteLine($"[DEBUG] newDirectoryPath: {newDirectoryPath}");
+
+            if (newDirectoryPath is not null)
+            {
+                Directory.CreateDirectory(newDirectoryPath.ToNativePath());
+                File.Move(oldDirectoryPath.Resolve(fileItem.Name).ToNativePath(), newDirectoryPath.Resolve(fileItem.Name).ToNativePath());
+                CleanUpTree(oldDirectoryPath, oldFolderPath.GetLength());
+                fileItem.DirectoryName = newDirectoryPath.ToNativePath();
+                fileItem.Folder = newFolder;
+            }
+        }
+    }
+
+    private static void CleanUpTree(SPath directoryPath, int endDepth)
+    {
+        //Console.Error.WriteLine($"[DEBUG] CleanUpTree({directoryPath}, {endDepth})");
+
+        SPath? dirPath = directoryPath;
+        int depth = 0;
+        while (dirPath is not null && depth < endDepth)
+        {
+            string path = dirPath.ToNativePath();
+            if (IsDirectoryEmpty(path))
+            {
+                Directory.Delete(path);
+            }
+            else
+            {
+                break;
+            }
+            dirPath = dirPath.GetParent();
+            ++depth;
+        }
+    }
+
+    private static bool IsDirectoryEmpty(string path)
+    {
+        return !Directory.EnumerateFileSystemEntries(path).Any();
     }
 
     public static void BackupFile(string name, byte[] data)
     {
         File.WriteAllBytes(DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_") + name, data);
-    }
-
-    private static string FromNativePath(string path)
-    {
-        if (Path.DirectorySeparatorChar != '/')
-        {
-            return path.Replace(Char.ToString(Path.DirectorySeparatorChar), "/");
-        }
-        else
-        {
-            return path;
-        }
-    }
-
-    private static string ToNativePath(string path)
-    {
-        if (Path.DirectorySeparatorChar != '/')
-        {
-            return path.Replace("/", Char.ToString(Path.DirectorySeparatorChar));
-        }
-        else
-        {
-            return path;
-        }
-    }
-
-    public static string Sever(string? path, string? subPath)
-    {
-        if (path == null || subPath == null || subPath.Length == 0)
-        {
-            return path ?? "";
-        }
-        else if (Path.EndsInDirectorySeparator(path) == Path.EndsInDirectorySeparator(subPath))
-        {
-            return Sever(Path.GetDirectoryName(path), Path.GetDirectoryName(subPath));
-        }
-        else if (Path.EndsInDirectorySeparator(path))
-        {
-            return Sever(Path.GetDirectoryName(path), subPath);
-        }
-        else
-        {
-            return Sever(path, Path.GetDirectoryName(subPath));
-        }
-    }
-
-    public static string? GetDirectorySuffix(string path)
-    {
-        int index = path.IndexOf(Path.AltDirectorySeparatorChar);
-        if (index != -1)
-        {
-            return path[(index + 1)..];
-        }
-        else
-        {
-            return null;
-        }
     }
 }

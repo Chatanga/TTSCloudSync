@@ -4,19 +4,67 @@ namespace TTSCloudSync;
 
 class CloudSync
 {
+    private static readonly string USAGE =
+        """
+
+        Usage:
+            sync-with-cloud [--pull] [--dry-run] LOCAL_PATH [TTS_STEAM_CLOUD_PATH]
+        """;
+
+    private static readonly string DESCRIPTION =
+        """
+
+        Important:
+            A Steam client with the TTS application must be running for this command to
+            work.
+
+        Synchronize part of your Steam cloud for Tabletop Simulator with a local path,
+        adding, deleting or moving resources to match your local path content. (When
+        simply moved around, the shared URL of a resource remains the same.) Implicitly,
+        all resources will be shared on your cloud and the tool will output the updated
+        mapping which could be used with patch-ugc-url.
+
+        Note that the local path is a native path, whereas the optional TTS path is a
+        remote path using '/' as the folder separator.
+
+        Options:
+
+            --help
+                This documentation.
+
+            --push
+                The default behavior, as described above.
+
+            --pull
+                If defined, synchronize your local path with your Steam Cloud, adding,
+                deleting or moving resources locally.
+
+            --dry-run
+                Simply log the changes but do not apply them.
+
+        """;
+
     public static void Main(string[] args)
     {
         CommandLineParser parser = new();
+        parser.AddOption("--help");
         parser.AddOption("--push");
         parser.AddOption("--pull");
         parser.AddOption("--dry-run");
         (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
 
+        if (options.ContainsKey("--help"))
+        {
+            Console.Out.WriteLine(USAGE);
+            Console.Out.WriteLine(DESCRIPTION);
+            Environment.Exit(0);
+        }
+
         bool push = options.ContainsKey("--push") || !options.ContainsKey("--pull");
         bool dryRun = options.ContainsKey("--dry-run");
 
         string localRoot = ".";
-        string remoteRoot = ".";
+        string remoteRoot = "";
 
         switch (arguments.Count)
         {
@@ -28,7 +76,7 @@ class CloudSync
                 remoteRoot = arguments[1];
                 break;
             default:
-                Console.Error.WriteLine("Usage: sync-with-cloud [--pull] [--dry-run] LOCAL_PATH [TTS_STEAM_CLOUD_PATH] [> MAPPING]");
+                Console.Error.WriteLine(USAGE);
                 Environment.Exit(1);
                 break;
         }
@@ -36,7 +84,9 @@ class CloudSync
         SteamCloud.ConnectToSteam(TabletopSimulatorCloud.TTS_APP_ID);
         try
         {
-            new CloudSync(GetCanonicalFullPath(localRoot), remoteRoot, push, dryRun).Synchronize();
+            SPath localRootPath = SPath.FromNativePath(Path.GetFullPath(localRoot));
+            SPath remoteRootPath = SPath.FromTTSPath(remoteRoot);
+            new CloudSync(localRootPath, remoteRootPath, push, dryRun).Synchronize();
         }
         finally
         {
@@ -44,17 +94,9 @@ class CloudSync
         }
     }
 
-    private static string GetCanonicalFullPath(string path)
-    {
-        string? canonicalFullPath = Path.GetFullPath(path);
-        ArgumentNullException.ThrowIfNull(canonicalFullPath);
-        canonicalFullPath = Path.TrimEndingDirectorySeparator(canonicalFullPath);
-        return canonicalFullPath;
-    }
+    private readonly SPath LocalRootPath;
 
-    private readonly string LocalRootPath;
-
-    private readonly string RemoteRootFolder;
+    private readonly SPath RemoteRootFolder;
 
     private readonly Dictionary<UniKey, LocalFileSystem.LocalItem> FileItems;
 
@@ -68,11 +110,10 @@ class CloudSync
 
     // Shared = listed in the Steam Cloud (which is a flat list of files by the way).
     // Known = listed in TTS CloudInfo.bson file (which is a hierarchical directory layer).
-    public CloudSync(string localRootPath, string remoteRootPath, bool push, bool dryRun)
+    public CloudSync(SPath localRootPath, SPath remoteRootPath, bool push, bool dryRun)
     {
         LocalRootPath = localRootPath;
-        RemoteRootFolder = Path.GetFileName(remoteRootPath);
-        ArgumentNullException.ThrowIfNull(RemoteRootFolder);
+        RemoteRootFolder = remoteRootPath;
 
         FileItems = LocalFileSystem.ListItems(localRootPath, remoteRootPath);
         RemoteItems = SteamCloud.ListItems();
@@ -89,7 +130,7 @@ class CloudSync
 
         if (TabletopSimulatorCloud.IsDistinct(CloudItems, fileItem, data))
         {
-            Console.Error.Write($"Add, share and remember: {key}\n");
+            Console.Error.WriteLine($"Add, share and remember: {key}");
             if (!DryRun)
             {
                 if (SteamCloud.UploadFileAndShare(fileItem.Name, data, out SteamCloud.RemoteItem? remoteItem, out UgcUrl? URL))
@@ -136,7 +177,7 @@ class CloudSync
         }
         else
         {
-            Console.Error.Write($"Ignore duplicated local file (same case insensitive name and content): {key}\n");
+            Console.Error.WriteLine($"Ignore duplicated local file (same case insensitive name and content): {key}");
             // Fixing TTS index if needed.
             if (!RemoteItems.ContainsKey(key))
             {
@@ -151,10 +192,14 @@ class CloudSync
         {
             if (CloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
             {
-                if (cloudItem.Folder == RemoteRootFolder || cloudItem.Folder.StartsWith(RemoteRootFolder + "/"))
+                SPath folder = SPath.FromTTSPath(cloudItem.Folder);
+                //Console.Error.WriteLine($"[DEBUG] cloudItem.Folder: {folder}, RemoteRootFolder: {RemoteRootFolder}");
+                SPath? subFolder = folder.Prune(RemoteRootFolder);
+                if (subFolder is not null)
                 {
-                    string directoryName = Path.Combine(LocalRootPath, cloudItem.Folder);
-                    Console.Error.Write($"Download: {key}\n");
+                    string directoryName = LocalRootPath.Combine(subFolder).ToNativePath();
+                    //Console.Error.WriteLine($"[DEBUG] directoryName: {directoryName}");
+                    Console.Error.WriteLine($"Download: {key}");
                     if (!DryRun)
                     {
                         if (SteamCloud.DownloadFile(cloudItem.URL, directoryName, cloudItem.Name))
@@ -252,17 +297,17 @@ class CloudSync
             }
             else if (Push)
             {
-                Console.Error.WriteLine($"Move: {key} ({fileItem.Folder} -> {cloudItem.Folder})");
+                Console.Error.WriteLine($"Move: {key} ('{cloudItem.Folder}' -> '{fileItem.Folder}')");
                 cloudItem.Folder = fileItem.Folder;
                 CloudItems.Remove(key);
                 CloudItems.Add(key, cloudItem);
             }
             else
             {
-                Console.Error.WriteLine($"Move: {key} ({fileItem.Folder} <- {cloudItem.Folder})");
+                Console.Error.WriteLine($"Move: {key} ('{cloudItem.Folder}' <- '{fileItem.Folder}')");
                 if (!DryRun)
                 {
-                    LocalFileSystem.MoveFile(fileItem, cloudItem.Folder);
+                    LocalFileSystem.MoveFile(LocalRootPath, RemoteRootFolder, fileItem, cloudItem.Folder);
                 }
                 else
                 {
@@ -281,7 +326,8 @@ class CloudSync
     private bool IsOutside(UniKey key, TabletopSimulatorCloud.CloudItem cloudItem)
     {
         // TODO Questionable, to be reworked.
-        return !cloudItem.Folder.StartsWith(RemoteRootFolder);
+        SPath cloudFolder = SPath.FromTTSPath(cloudItem.Folder);
+        return cloudFolder.Prune(RemoteRootFolder) == null;
     }
 
     public void Synchronize()
@@ -365,7 +411,6 @@ class CloudSync
 
                 if (actions.TryGetValue(state, out Action<UniKey>? action))
                 {
-                    //ArgumentNullException.ThrowIfNull(action);
                     if (action is not null)
                     {
                         if (allowedActions[i].Contains(action))

@@ -9,6 +9,8 @@ class TabletopSimulatorCloud
 {
     public static readonly string TTS_APP_ID = "286160";
 
+    public static readonly char FOLDER_SEPARATOR = '/';
+
     public static readonly HashSet<string> TTS_SPECIAL_FILE_NAMES = new(){
         "WorkshopImageUpload.png",
         "WorkshopUpload",

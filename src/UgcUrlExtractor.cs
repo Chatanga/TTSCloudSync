@@ -4,9 +4,33 @@ namespace TTSCloudSync;
 
 class UgcUrlExtractor
 {
+    private static readonly string USAGE =
+        """
+
+        Usage:
+            extract-ugc-url [SAVE]
+        """;
+
+    private static readonly string DESCRIPTION =
+        """
+
+        Extract all the URLs for UGC (User-Generated Content) resources found in a JSON
+        save (any kind of text file actually).
+
+        """;
+
     public static void Main(string[] args)
     {
-        (_, List<string> arguments) = new CommandLineParser().Parse(args);
+        CommandLineParser parser = new();
+        parser.AddOption("--help");
+        (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
+
+        if (options.ContainsKey("--help"))
+        {
+            Console.Out.WriteLine(USAGE);
+            Console.Out.WriteLine(DESCRIPTION);
+            Environment.Exit(0);
+        }
 
         switch (arguments.Count)
         {
@@ -20,7 +44,7 @@ class UgcUrlExtractor
                 }
                 break;
             default:
-                Console.Error.WriteLine("Usage: extract-ugc-url [SAVE] [> URL_LST]");
+                Console.Error.WriteLine(USAGE);
                 Environment.Exit(1);
                 break;
         }

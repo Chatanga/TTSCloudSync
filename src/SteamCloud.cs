@@ -2,7 +2,6 @@ using Steamworks;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 
 namespace TTSCloudSync;
 
@@ -43,9 +42,6 @@ partial class SteamCloud
         SteamAPI.Shutdown();
     }
 
-    [GeneratedRegex("^[a-z]")]
-    private static partial Regex FirstLetterAsChar();
-
     public static Dictionary<UniKey, RemoteItem> ListItems()
     {
         Dictionary<UniKey, RemoteItem> remoteItems = new();
@@ -67,7 +63,7 @@ partial class SteamCloud
             }
             else if (!TabletopSimulatorCloud.TTS_SPECIAL_FILE_NAMES.Contains(fileName))
             {
-                Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
+                //TODO Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
             }
 
             RemoteItem item = new()

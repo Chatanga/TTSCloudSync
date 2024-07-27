@@ -19,7 +19,10 @@
 
   <ItemGroup Condition="'$(RuntimeIdentifier)'=='linux-x64'">
     <NativeLibs Include="lib/linux-x64/libsteam_api.so" />
-    <NativeLibs Include="lib/linux-x64/*.sh" />
+    <NativeLibs Include="lib/linux-x64/download-ugc-resources" />
+    <NativeLibs Include="lib/linux-x64/extract-ugc-url" />
+    <NativeLibs Include="lib/linux-x64/patch-ugc-url" />
+    <NativeLibs Include="lib/linux-x64/sync-with-cloud" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(RuntimeIdentifier)'=='win-x64'">
