@@ -4,15 +4,8 @@ public class CommandLine
 {
     public static readonly string VERSION = "1.0";
 
-    private static void HandleException(object sender, UnhandledExceptionEventArgs e)
-    {
-        Console.Error.WriteLine("Unhandled exception (" + e.ExceptionObject.GetType() + "): " + e.ExceptionObject);
-    }
-
     static void Main(string[] args)
     {
-        AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(HandleException);
-
         Console.Error.WriteLine($"[TTSCloudSync {VERSION}]");
         if (args.Length > 0)
         {

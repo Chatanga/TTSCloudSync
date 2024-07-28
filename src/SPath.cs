@@ -131,7 +131,7 @@ class SPath
 
         for (int i = 0; i < referenceAbsolutePath.Elements.Length; ++i)
         {
-            if (i > Elements.Length || Elements[i] != referenceAbsolutePath.Elements[i])
+            if (i >= Elements.Length || Elements[i] != referenceAbsolutePath.Elements[i])
             {
                 return null;
             }
@@ -154,7 +154,7 @@ class SPath
         int length = baseRelativePath.Elements.Length;
         for (int i = 0; i < length; ++i)
         {
-            if (i > Elements.Length || Elements[i] != baseRelativePath.Elements[i])
+            if (i >= Elements.Length || Elements[i] != baseRelativePath.Elements[i])
             {
                 return null;
             }
@@ -173,7 +173,7 @@ class SPath
         int length = extRelativePath.Elements.Length;
         for (int i = length - 1; i >= 0; --i)
         {
-            if (i > Elements.Length || Elements[i] != extRelativePath.Elements[i])
+            if (i >= Elements.Length || Elements[i] != extRelativePath.Elements[i])
             {
                 return null;
             }

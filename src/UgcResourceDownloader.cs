@@ -169,11 +169,6 @@ partial class UgcResourceDownloader
                     if (match.Success && match.Index == 0)
                     {
                         fileName = fileName[match.Length..];
-                        if (File.Exists(Path.Combine(path, fileName)))
-                        {
-                            Console.Error.WriteLine($"Forcing SHA1 prefix to avoid name collision with file '{fileName}'.");
-                            fileName = result.m_pchFileName;
-                        }
                     }
                 }
 
