@@ -73,9 +73,32 @@ patch-ugc-url [--help] [-i] [--no-backup] MAPPING [SAVE]
 
 Patch all UGC URLs in the provided save (or standard input) to use one from your cloud with the same SHA1 (whatever the name) if one exists.
 
-## Workflow Example
+## Workflow examples
 
-Here is a typical worflow to rehost part or all of the resources of an existing mod save:
+Here a basic workflow to manage your TTS cloud locally:
+
+```bash
+mkdir my_local_folder
+
+# Retrieve the full content of your cloud locally.
+sync-with-cloud --pull my_local_folder > mapping.lst
+
+# Make a backup if you want to, then reorganize your local folder.
+
+# Push back your changes to your cloud (the '--push' option is actually the default).
+sync-with-cloud --push my_local_folder > mapping.lst
+```
+
+If you are not interested in your entire cloud but only a part dedicated to a given mod per instance
+(notice the use of '/' for a path on your remote cloud):
+
+```bash
+sync-with-cloud --pull my_local_folder any/folder/on/cloud > mapping.lst
+# ...
+sync-with-cloud --push my_local_folder any/folder/on/cloud > mapping.lst
+```
+
+Here is a more convoluted workflow to rehost part or all of the resources of an existing mod save:
 
 ```bash
 TTS_DIR="$HOME/.local/share/Tabletop Simulator"
@@ -91,7 +114,7 @@ extract-ugc-url "$TTS_DIR/Mods/Workshop/1234567890.json" | download-ugc-resource
 sync-with-cloud resources my_mod_name > mapping.lst
 
 # 4. Patch the mod to use your own resources when available.
-patch-ugc-url mapping.lst "$TTS_DIR/Mods/Workshop/1234567890.json" > "$TTS_DIR/Saves/TS_Save_100.json"
+patch-ugc-url mapping.lst "$TTS_DIR/Mods/Workshop/1234567890.json" > "$TTS_DIR/Saves/TS_Save_999.json"
 ```
 
 This way, you can easily relocate all the resources into your cloud to avoid any dead links in the future.
@@ -100,7 +123,7 @@ The previous example run on Linux, but the Windows version is almost the same:
 
 ```batch
 set TTS_DIR=%UserProfile%\Documents\My Games\Tabletop Simulator
-md resources
+mkdir resources
 
 rem 1. Download all the resources of a save.
 extract-ugc-url "%TTS_DIR%\Mods\Workshop\1234567890.json" | download-ugc-resources --no-sha1 -o resources
@@ -112,5 +135,5 @@ rem 3. Push everything into your cloud (sync-with-cloud).
 sync-with-cloud resources my_mod_name > mapping.lst
 
 rem 4. Patch the mod to use your own resources when available.
-patch-ugc-url mapping.lst "%TTS_DIR%\Mods\Workshop\1234567890.json" > "%TTS_DIR%\Saves\TS_Save_100.json"
+patch-ugc-url mapping.lst "%TTS_DIR%\Mods\Workshop\1234567890.json" > "%TTS_DIR%\Saves\TS_Save_999.json"
 ```
