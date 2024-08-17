@@ -1,8 +1,8 @@
 # TTS Cloud Sync
 
-Sync a local folder with the Tabletop Simulator cloud.
+Sync a local folder with the Tabletop Simulator cloud on Linux and Windows.
 
-Note: this tool is loosely based on [tts-cloud-manager](https://github.com/leberechtreinhold/tts-cloud-manager),
+Note: this toolset is loosely based on [tts-cloud-manager](https://github.com/leberechtreinhold/tts-cloud-manager),
 another tool which may interests you if you are on Windows and prefer a graphical user interface.
 
 ## Install
