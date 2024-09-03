@@ -42,6 +42,9 @@ class CloudSync
             --dry-run
                 Simply log the changes but do not apply them.
 
+            --no-remove
+                Do not delete missing files when synchronizing.
+
         """;
 
     public static void Main(string[] args)
@@ -51,6 +54,7 @@ class CloudSync
         parser.AddOption("--push");
         parser.AddOption("--pull");
         parser.AddOption("--dry-run");
+        parser.AddOption("--no-remove");
         (Dictionary<string, string?> options, List<string> arguments) = parser.Parse(args);
 
         if (options.ContainsKey("--help"))
@@ -62,6 +66,7 @@ class CloudSync
 
         bool push = options.ContainsKey("--push") || !options.ContainsKey("--pull");
         bool dryRun = options.ContainsKey("--dry-run");
+        bool noRemove = options.ContainsKey("--no-remove");
 
         string localRoot = ".";
         string remoteRoot = "";
@@ -92,7 +97,7 @@ class CloudSync
         {
             SPath localRootPath = SPath.FromNativePath(Path.GetFullPath(localRoot));
             SPath remoteRootFolder = SPath.FromTTSPath(remoteRoot);
-            new CloudSync(localRootPath, remoteRootFolder, push, dryRun).Synchronize();
+            new CloudSync(localRootPath, remoteRootFolder, push, dryRun, noRemove).Synchronize();
         }
         finally
         {
@@ -114,9 +119,11 @@ class CloudSync
 
     private readonly bool DryRun;
 
+    private readonly bool NoRemove;
+
     // Shared = listed in the Steam Cloud (which is a flat list of files by the way).
     // Known = listed in TTS CloudInfo.bson file (which is a hierarchical directory layer).
-    public CloudSync(SPath localRootPath, SPath remoteRootFolder, bool push, bool dryRun)
+    public CloudSync(SPath localRootPath, SPath remoteRootFolder, bool push, bool dryRun, bool noRemove)
     {
         LocalRootPath = localRootPath;
         RemoteRootFolder = remoteRootFolder;
@@ -127,6 +134,7 @@ class CloudSync
 
         Push = push;
         DryRun = dryRun;
+        NoRemove = noRemove;
     }
 
     private void Upload(UniKey key)
@@ -254,6 +262,12 @@ class CloudSync
                 }
                 else
                 {
+                    if (NoRemove)
+                    {
+                        //Console.Error.WriteLine("Preserve: " + key);
+                        return;
+                    }
+
                     Console.Error.WriteLine($"Delete and forget: {key}");
                     if (!DryRun)
                     {
@@ -261,6 +275,10 @@ class CloudSync
                     }
                 }
                 RemoteItems.Remove(key);
+            }
+            else if (CloudItems.TryGetValue(key, out TabletopSimulatorCloud.CloudItem cloudItem))
+            {
+                Console.Error.WriteLine($"Clean up from TTS index: {key}");
                 CloudItems.Remove(key);
             }
         }
@@ -268,6 +286,12 @@ class CloudSync
         {
             if (FileItems.TryGetValue(key, out LocalFileSystem.LocalItem fileItem))
             {
+                if (NoRemove)
+                {
+                    Console.Error.WriteLine("Preserve: " + key);
+                    return;
+                }
+
                 Console.Error.WriteLine($"Delete: {key}");
                 if (!DryRun)
                 {
