@@ -62,7 +62,7 @@ partial class SteamCloud
             }
             else if (!TabletopSimulatorCloud.TTS_SPECIAL_FILE_NAMES.Contains(fileName))
             {
-                Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
+                //Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
             }
 
             RemoteItem item = new()
