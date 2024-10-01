@@ -99,29 +99,34 @@ class UgcUrlPatcher
             while ((line = reader.ReadLine()) != null)
             {
                 string[] tokens = line.Split(';');
-                Debug.Assert(tokens.Length == 2);
-
-                string registeredName = tokens[0];
-                int underscoreIndex = registeredName.IndexOf('_');
-                Debug.Assert(underscoreIndex != -1);
-                string key = registeredName[0..underscoreIndex];
-                registeredName = registeredName[(underscoreIndex + 1)..];
-
-                UgcUrl? newUgcUrl = UgcUrl.Parse(tokens[1]);
-                if (newUgcUrl is not null)
+                if (tokens.Length == 2)
                 {
-                    if (!ugcUrlByKey.TryGetValue(key, out UgcUrl oldUgcUrl))
+                    string registeredName = tokens[0];
+                    int underscoreIndex = registeredName.IndexOf('_');
+                    Debug.Assert(underscoreIndex != -1);
+                    string key = registeredName[0..underscoreIndex];
+                    registeredName = registeredName[(underscoreIndex + 1)..];
+
+                    UgcUrl? newUgcUrl = UgcUrl.Parse(tokens[1]);
+                    if (newUgcUrl is not null)
                     {
-                        ugcUrlByKey.TryAdd(key, newUgcUrl.Value);
+                        if (!ugcUrlByKey.TryGetValue(key, out UgcUrl oldUgcUrl))
+                        {
+                            ugcUrlByKey.TryAdd(key, newUgcUrl.Value);
+                        }
+                        else if (oldUgcUrl != newUgcUrl)
+                        {
+                            Console.Error.WriteLine($"Duplicated content {key} ({registeredName})");
+                        }
                     }
-                    else if (oldUgcUrl != newUgcUrl)
+                    else
                     {
-                        Console.Error.WriteLine($"Duplicated content {key} ({registeredName})");
+                        Console.Error.WriteLine($"Malformed UGC URL: '{tokens[1]}'");
                     }
                 }
                 else
                 {
-                    Console.Error.WriteLine($"Malformed UGC URL: '{tokens[1]}'");
+                    Console.Error.WriteLine($"Malformed UGC URL: '{line}'");
                 }
             }
         }

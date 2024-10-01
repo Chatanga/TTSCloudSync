@@ -144,7 +144,7 @@ partial class UgcResourceDownloader
             while (!Finished)
             {
                 SteamAPI.RunCallbacks();
-                await Task.Delay(100);
+                await Task.Delay(20);
             }
             return success;
         }
