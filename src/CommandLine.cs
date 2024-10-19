@@ -2,11 +2,10 @@ namespace TTSCloudSync;
 
 public class CommandLine
 {
-    public static readonly string VERSION = "1.0";
+    public static readonly string VERSION = "1.3";
 
     static void Main(string[] args)
     {
-        Console.Error.WriteLine($"[TTSCloudSync {VERSION}]");
         if (args.Length > 0)
         {
             string toolName = args[0];

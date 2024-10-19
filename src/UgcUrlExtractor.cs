@@ -28,6 +28,7 @@ class UgcUrlExtractor
 
         if (options.ContainsKey("--help"))
         {
+            Console.Out.WriteLine($"[TTSCloudSync {CommandLine.VERSION}]");
             Console.Out.WriteLine(USAGE);
             Console.Out.WriteLine(DESCRIPTION);
             Environment.Exit(0);
