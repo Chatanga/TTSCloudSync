@@ -1,1 +1,1 @@
-LD_LIBRARY_PATH=lib/linux-x64 dotnet run -- "$@"
+DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 LD_LIBRARY_PATH=lib/linux-x64 dotnet run -- "$@"

@@ -12,7 +12,7 @@ class TabletopSimulatorCloud
     public static readonly char FOLDER_SEPARATOR = '/';
 
     public static readonly HashSet<string> TTS_SPECIAL_FILE_NAMES = new(){
-        "WorkshopImageUpload.png",
+        "WorkshopImageUpload.png", // Really?
         "WorkshopUpload",
         "CloudFolder.bson",
         "CloudInfo.bson",
@@ -54,12 +54,12 @@ class TabletopSimulatorCloud
         }
     }
 
+    // FIXME? List -> Dictionnary (not used anyway)
     public static List<string> ListFolders()
     {
         if (SteamRemoteStorage.FileExists("CloudFolder.bson"))
         {
             var data = SteamCloud.GetFile("CloudFolder.bson");
-
             var cloudFolder = ParseBson<List<string>>(data);
             if (cloudFolder is null)
             {

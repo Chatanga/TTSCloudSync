@@ -32,7 +32,7 @@ partial class UgcResourceDownloader
                 Do not prepend resource names with their checksum (SHA1).
 
             --o directory
-                To directory where to store the resources.
+                The directory where to store the resources.
 
         """;
 

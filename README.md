@@ -12,7 +12,7 @@ Unzip the file for your operating system somewhere and run the scripts from ther
 
 ## How to build
 
-Once you have installed the .NET 7.0 framework:
+Once you have installed the .NET 8.0 framework:
 
 ```bash
 dotnet publish --os linux

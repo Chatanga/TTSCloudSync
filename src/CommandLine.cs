@@ -24,6 +24,9 @@ public class CommandLine
                 case "patch-ugc-url":
                     UgcUrlPatcher.Main(shiftedArgs);
                     break;
+                case "convert-remote-cache":
+                    RemoteCacheConverter.Main(shiftedArgs);
+                    break;
                 default:
                     Console.Error.WriteLine("Unknown tool: " + toolName);
                     Environment.Exit(1);

@@ -1,4 +1,6 @@
 ﻿using Steamworks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Bson;
 
 namespace TTSCloudSync;
 
@@ -248,6 +250,22 @@ class CloudSync
                     }
                 }
             }
+            else if (false)
+            {
+                Console.Error.WriteLine($"Download irregular file: {remoteItem.Name}");
+                string filePath = Path.Combine(LocalRootPath.ToNativePath(), remoteItem.Name);
+                var data = SteamCloud.GetFile(remoteItem.Name);
+                using MemoryStream memoryStream = new(data);
+                using BsonDataReader bsonReader = new(memoryStream);
+                JsonSerializer jsonSerializer = new();
+                var content = jsonSerializer.Deserialize(bsonReader);
+                if (content != null) {
+                    using (StreamWriter binWriter = new(File.Open(filePath, FileMode.Create)))
+                    {
+                        binWriter.Write(content.ToString());
+                    }
+                }
+            }
         }
     }
 
@@ -432,6 +450,8 @@ class CloudSync
             {
                 allKeys.Add(entry.Key);
             }
+
+            //Console.Error.WriteLine($"{FileItems.Count} ⊕ {RemoteItems.Count} ⊕ {CloudItems.Count} = {allKeys.Count}");
 
             Console.Error.WriteLine(i == 0 ? "---" : "+++");
             foreach (var key in allKeys)
