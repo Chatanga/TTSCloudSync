@@ -115,6 +115,8 @@ partial class RemoteCacheConverter
             Directory.CreateDirectory(path);
         }
 
+        Dictionary<string, int> nextIndexes = [];
+
         foreach (var (key, item) in items)
         {
             var folderPath = Path.Join(item.Folder.Split('/'));
@@ -122,16 +124,37 @@ partial class RemoteCacheConverter
             var dstPath = Path.Join(outputDirPath, folderPath, item.Name);
             if (!File.Exists(srcPath))
             {
-                Console.Error.WriteLine($"Source doesn't exists: {srcPath}");
+                srcPath = Path.Join(remoteCacheDirPath, key.Name.ToString());
             }
-            else if (File.Exists(dstPath))
+            if (!File.Exists(srcPath))
             {
-                Console.Error.WriteLine($"Destination already exists: {dstPath}");
+                Console.Error.WriteLine($"Source doesn't exists: {srcPath}");
             }
             else
             {
-                Console.WriteLine($"Converting {srcPath} into {dstPath}");
-                File.Copy(srcPath, dstPath);
+                int index = nextIndexes.GetValueOrDefault(dstPath, 0);
+                nextIndexes[dstPath] = index + 1;
+                if (index > 0)
+                {
+                    int lastDotIndex = dstPath.LastIndexOf('.');
+                    if (lastDotIndex != -1)
+                    {
+                        dstPath = $"{dstPath[0..lastDotIndex]} [{index}]{dstPath[lastDotIndex..]}";
+                    }
+                    else
+                    {
+                        dstPath = $"{dstPath} [{index}]";
+                    }
+                }
+                if (File.Exists(dstPath))
+                {
+                    Console.Error.WriteLine($"Destination already exists: {dstPath}");
+                }
+                else
+                {
+                    Console.WriteLine($"Converting {srcPath} into {dstPath}");
+                    File.Copy(srcPath, dstPath);
+                }
             }
         }
     }
