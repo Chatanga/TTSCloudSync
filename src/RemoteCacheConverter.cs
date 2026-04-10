@@ -32,8 +32,8 @@ partial class RemoteCacheConverter
 
         """;
 
-    [GeneratedRegex("[0-9A-Z]+_")]
-    private static partial Regex Sha1PrefixRegex();
+    [GeneratedRegex("^[0-9A-F]{40}_")]
+    public static partial Regex Sha1PrefixRegex();
 
     public static void Main(string[] args)
     {
@@ -92,13 +92,13 @@ partial class RemoteCacheConverter
             {
                 Regex regex = Sha1PrefixRegex();
                 Match match = regex.Match(fileName);
-                if (match.Success && match.Index == 0)
+                if (match.Success)
                 {
                     fileName = fileName[match.Length..];
                 }
                 else
                 {
-                    //Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): {fileName}");
+                    Console.Error.WriteLine($"Suspicious file name (missing SHA1 prefix): '{fileName}'");
                 }
             }
         }

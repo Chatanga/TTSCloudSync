@@ -22,9 +22,14 @@ class SPath
 
     public static SPath FromAnyPath(char separator, string path)
     {
-        return new SPath(
-            path.StartsWith(separator) ? "" : null,
-            path.Split(separator, StringSplitOptions.RemoveEmptyEntries).ToArray());
+        if (path is not null)
+        {
+            return new SPath(
+                path.StartsWith(separator) ? "" : null,
+                path.Split(separator, StringSplitOptions.RemoveEmptyEntries).ToArray());
+        } else {
+            return new SPath(null, []);
+        }
     }
 
     public static SPath FromTTSPath(string path)
