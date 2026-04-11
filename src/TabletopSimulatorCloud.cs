@@ -97,7 +97,7 @@ class TabletopSimulatorCloud
         foreach (var entry in cloudInfo)
         {
             string folder = entry.Value.Folder;
-            while (folder != "")
+            while (!String.IsNullOrEmpty(folder))
             {
                 allFolders.Add(folder);
                 int lastPathSeparatorIndex = folder.LastIndexOf('/');

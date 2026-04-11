@@ -2,7 +2,7 @@ namespace TTSCloudSync;
 
 public class CommandLine
 {
-    public static readonly string VERSION = "1.3.3";
+    public static readonly string VERSION = "1.3.4";
 
     static void Main(string[] args)
     {
