@@ -49,6 +49,8 @@ class CloudSync
 
         """;
 
+    private static readonly bool DOWNLOAD_IRREGULAR_FILE = false;
+
     public static void Main(string[] args)
     {
         CommandLineParser parser = new();
@@ -250,7 +252,7 @@ class CloudSync
                     }
                 }
             }
-            else if (false)
+            else if (DOWNLOAD_IRREGULAR_FILE)
             {
                 Console.Error.WriteLine($"Download irregular file: {remoteItem.Name}");
                 string filePath = Path.Combine(LocalRootPath.ToNativePath(), remoteItem.Name);
@@ -467,7 +469,14 @@ class CloudSync
                     {
                         if (allowedActions[i].Contains(action))
                         {
-                            action(key);
+                            try
+                            {
+                                action(key);
+                            }
+                            catch (Exception e)
+                            {
+                                Console.Error.WriteLine($"Failed! ({e.Message})");
+                            }
                         }
                     }
                 }

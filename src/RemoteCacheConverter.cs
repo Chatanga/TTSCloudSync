@@ -72,8 +72,8 @@ partial class RemoteCacheConverter
             Environment.Exit(1);
         }
 
-        Dictionary<UniKey, TabletopSimulatorCloud.CloudItem> items = null;
-        List<string> folders = null;
+        Dictionary<UniKey, TabletopSimulatorCloud.CloudItem>? items = null;
+        List<string>? folders = null;
 
         foreach (var file in Directory.GetFiles(remoteCacheDirPath))
         {

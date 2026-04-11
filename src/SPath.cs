@@ -43,7 +43,7 @@ class SPath
 
     private readonly string[] Elements;
 
-    private SPath(string? root, string[] elements)
+    public SPath(string? root, string[] elements)
     {
         Root = root;
         Elements = new string[elements.Length];
@@ -52,7 +52,18 @@ class SPath
 
     public string ToNativePath()
     {
-        string path = Path.Combine(Elements);
+        string[] safeElements = new string[Elements.Length];
+        for (int i = 0; i < Elements.Length; ++i)
+        {
+            string element = Elements[i];
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                element = element.Replace(c, '_');
+            }
+            safeElements[i] = element;
+        }
+
+        string path = Path.Combine(safeElements);
         if (Root is not null)
         {
             path = Path.Combine(Root, path);
